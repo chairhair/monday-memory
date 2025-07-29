@@ -1,5 +1,7 @@
 HELP.md
 .gradle
+.env
+init_env.ps1
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
