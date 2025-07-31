@@ -28,7 +28,6 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/internal/**").hasRole("SERVICE")
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)
