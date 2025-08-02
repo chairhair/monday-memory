@@ -3,6 +3,8 @@ package com.monday.monday_backend.auth.dto;
 
 import org.springframework.http.HttpStatus;
 
-public record VerificationResponseDTO(HttpStatus statusCode, String token, String explanation) {
-    public static VerificationResponseDTO successfulDTO(String token) {return new VerificationResponseDTO(HttpStatus.ACCEPTED, token, "");}
+import java.util.Map;
+
+public record VerificationResponseDTO(HttpStatus statusCode, Map<String, Object> authentication) {
+    public static VerificationResponseDTO successfulDTO(Map<String, Object> authentication) {return new VerificationResponseDTO(HttpStatus.ACCEPTED, authentication);}
 }
