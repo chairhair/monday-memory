@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.tokens;
 
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.WeakKeyException;
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Base64;
+import java.util.Date;
 
 import io.jsonwebtoken.security.Keys;
 
@@ -45,5 +47,17 @@ public class JwtUtil {
         }
         this.key = obtainedKey;
         this.EXPIRATION_MS = expirationMs;
+    }
+
+    public String generateToken(String serviceName, String role) {
+        long now = System.currentTimeMillis();
+
+        return Jwts.builder()
+                .setSubject(serviceName)
+                .claim("role", role)
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + EXPIRATION_MS))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
 }
