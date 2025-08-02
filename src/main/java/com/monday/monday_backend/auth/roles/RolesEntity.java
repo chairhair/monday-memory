@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.roles;
 
+import com.monday.monday_backend.auth.tokens.TokensEntity;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -14,7 +15,7 @@ public class RolesEntity {
 
     private Instant expiration;
 
-    @ManyToOne
-    @JoinColumn(name = "token_id")
-    private String token;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "token")
+    private TokensEntity token;
 }

@@ -1,26 +1,30 @@
 package com.monday.monday_backend.auth.tokens;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
+@Builder
 @Entity
 public class TokensEntity {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Getter
-    String token;
+    @Column(nullable = false)
+    private String token;
 
-    String serviceName;
+    @Column(name = "service_name")
+    private String serviceName;
 
-    String accessLevel;
+    @Column(name = "access_level")
+    private String accessLevel;
 
-    @Getter
-    boolean expired;
+    private boolean expired;
 
-    @Getter
-    boolean revoked;
-
+    private boolean revoked;
 
 }
