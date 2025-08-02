@@ -43,13 +43,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7); // Remove "Bearer "
         logger.info("JWT removed Bearer " + jwt);
         Optional<TokensEntity> tokensEntity = tokensRepository.findByToken(jwt);
+
+        // FIXME: HARDCODED FOR THE TIME BEING
+        /*
         if (tokensEntity.isEmpty() || tokensEntity.get().isExpired() || tokensEntity.get().isRevoked()) {
             // Token is invalid — skip authentication
             filterChain.doFilter(request, response);
             return;
-        }
+        }*/
 
-        // FIXME: HARDCODED FOR THE TIME BEING
+
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken("monday-service", null, null);
 
