@@ -3,6 +3,7 @@ HELP.md
 .env
 gradle/
 init_env.ps1
+generate_openssl.ps1
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
