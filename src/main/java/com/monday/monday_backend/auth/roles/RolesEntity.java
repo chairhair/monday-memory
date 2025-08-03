@@ -14,7 +14,8 @@ import java.time.Instant;
 @Entity
 public class RolesEntity {
     @Id
-    private long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private long role_id;
 
     @Enumerated(EnumType.STRING)
     private AccessLevel accessLevel;
