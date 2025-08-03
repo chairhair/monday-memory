@@ -1,9 +1,12 @@
 package com.monday.monday_backend.auth.tokens;
 
+import com.monday.monday_backend.auth.roles.AccessLevel;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -21,7 +24,9 @@ public class TokensEntity {
     private String serviceName;
 
     @Column(name = "access_level")
-    private String accessLevel;
+    private AccessLevel accessLevel;
+
+    private Instant timeCreated;
 
     private boolean expired;
 

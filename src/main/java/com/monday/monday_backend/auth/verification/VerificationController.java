@@ -1,6 +1,8 @@
 package com.monday.monday_backend.auth.verification;
 
+import com.monday.monday_backend.auth.dto.VerificationRequestDTO;
 import com.monday.monday_backend.auth.dto.VerificationResponseDTO;
+import com.monday.monday_backend.auth.filters.JwtService;
 import com.monday.monday_backend.auth.tokens.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,7 +22,8 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class VerificationController {
 
-    private final JwtUtil jwtUtil;
+
+    private final JwtService jwtService;
 
     @PostMapping("/verify")
     public VerificationResponseDTO validateToken(Authentication auth) {
@@ -35,10 +38,11 @@ public class VerificationController {
 
     @PostMapping("/token")
     public VerificationResponseDTO getToken(
-            @RequestParam String serviceName,
-            @RequestParam String role
-    ) {
-        return VerificationResponseDTO.successfulDTO(Map.of("token", jwtUtil.generateToken(serviceName, role)));
+            @RequestBody VerificationRequestDTO verificationRequestDTO
+            ) {
+
+        //jwtService
+        return VerificationResponseDTO.successfulDTO(Map.of("token", token));
     }
 
 }

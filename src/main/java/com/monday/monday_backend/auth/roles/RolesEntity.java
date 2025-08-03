@@ -2,9 +2,15 @@ package com.monday.monday_backend.auth.roles;
 
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import jakarta.persistence.*;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 
+@Getter
+@Setter
+@Builder
 @Entity
 public class RolesEntity {
     @Id
@@ -12,8 +18,6 @@ public class RolesEntity {
 
     @Enumerated(EnumType.STRING)
     private AccessLevel accessLevel;
-
-    private Instant expiration;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token")

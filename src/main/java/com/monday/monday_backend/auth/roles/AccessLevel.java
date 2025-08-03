@@ -9,4 +9,6 @@ public enum AccessLevel {
     ANALYTICS,
     EXTERNAL_CLIENT,
     SYSTEM_MAINTAINER,
+    USER,
+    GUEST
 }
