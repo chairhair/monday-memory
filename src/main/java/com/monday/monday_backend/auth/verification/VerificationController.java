@@ -30,6 +30,7 @@ public class VerificationController {
         if (auth == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authentication found in context.");
         }
+
         return VerificationResponseDTO.successfulDTO(Map.of(
                 "principal", auth.getName(),
                 "roles", auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList()
@@ -40,7 +41,6 @@ public class VerificationController {
     public VerificationResponseDTO getToken(
             @RequestBody VerificationRequestDTO verificationRequestDTO
             ) {
-
         return jwtService.assignToken(verificationRequestDTO);
     }
 

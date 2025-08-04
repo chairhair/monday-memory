@@ -24,7 +24,6 @@ public class JwtService {
 
     private final JwtUtil jwtUtil;
     private final TokensRepository tokensRepository;
-
     private final UserRepository userRepository;
 
     public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository) {
@@ -33,6 +32,15 @@ public class JwtService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * This code does the following. It will...
+     * - Provide a token to guests if they currently do not have an account with the current system
+     * - Provide a token if the user provides its credentials.
+     * - Generate a token if the user has the correct role, but does not have the corresponding credential
+     *
+     * @param verificationRequestDTO
+     * @return
+     */
     public VerificationResponseDTO assignToken(VerificationRequestDTO verificationRequestDTO) {
         AccessLevel accessLevel;
         try {
