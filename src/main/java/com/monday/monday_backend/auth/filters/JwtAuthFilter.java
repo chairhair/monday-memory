@@ -10,12 +10,14 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -44,28 +46,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         logger.info("JWT removed Bearer " + jwt);
         Optional<TokensEntity> tokensEntity = tokensRepository.findByToken(jwt);
 
-        // FIXME: HARDCODED FOR THE TIME BEING
-        /*
         if (tokensEntity.isEmpty() || tokensEntity.get().isExpired() || tokensEntity.get().isRevoked()) {
             // Token is invalid — skip authentication
             filterChain.doFilter(request, response);
             return;
-        }*/
+        }
 
-
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("monday-service", null, null);
-
-        // Optionally add request details
-        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-        // ✅ Tell Spring Security the user/service is authenticated
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        /*
         // Extract service name or role from token claims
         String serviceName = jwtService.extractServiceName(jwt); // <-- your custom method
-        String accessLevel = tokensOpt.get().getAccessLevel();    // from DB
-        String token = tokensOpt.get().getToken();                // optional tracking
+        String accessLevel = String.valueOf(tokensEntity.get().getAccessLevel());    // from DB
+        String token = tokensEntity.get().getToken();                // optional tracking
 
         // Create Spring authority
         var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + accessLevel));
@@ -79,7 +69,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // ✅ Tell Spring Security the user/service is authenticated
         SecurityContextHolder.getContext().setAuthentication(authentication);
-         */
 
         filterChain.doFilter(request, response);
     }
