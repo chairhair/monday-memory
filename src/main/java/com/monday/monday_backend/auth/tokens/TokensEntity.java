@@ -1,6 +1,7 @@
 package com.monday.monday_backend.auth.tokens;
 
 import com.monday.monday_backend.auth.roles.AccessLevel;
+import com.monday.monday_backend.auth.users.UserEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,6 +24,7 @@ public class TokensEntity {
     @Column(name = "service_name")
     private String serviceName;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "access_level")
     private AccessLevel accessLevel;
 
@@ -32,4 +34,7 @@ public class TokensEntity {
 
     private boolean revoked;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "token", nullable = true)
+    private UserEntity user;
 }

@@ -1,14 +1,23 @@
 package com.monday.monday_backend.auth.filters;
 
 import com.monday.monday_backend.auth.dto.VerificationRequestDTO;
+import com.monday.monday_backend.auth.dto.VerificationResponseDTO;
 import com.monday.monday_backend.auth.roles.AccessLevel;
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.tokens.JwtUtil;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.tokens.TokensRepository;
+import com.monday.monday_backend.auth.users.UserEntity;
+import com.monday.monday_backend.auth.users.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class JwtService {
@@ -16,31 +25,72 @@ public class JwtService {
     private final JwtUtil jwtUtil;
     private final TokensRepository tokensRepository;
 
-    public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository) {
+    private final UserRepository userRepository;
+
+    public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
         this.tokensRepository = tokensRepository;
+        this.userRepository = userRepository;
     }
 
-    public boolean assignToken(VerificationRequestDTO verificationRequestDTO) {
+    public VerificationResponseDTO assignToken(VerificationRequestDTO verificationRequestDTO) {
         AccessLevel accessLevel;
         try {
-            accessLevel = AccessLevel.valueOf(verificationRequestDTO.role());
-        } catch(IllegalArgumentException e) {
+            accessLevel = AccessLevel.valueOf(verificationRequestDTO.requestedRole());
+        } catch (IllegalArgumentException e) {
             accessLevel = AccessLevel.GUEST;
         }
 
-        TokensEntity tokensEntity = TokensEntity.builder()
-                .token(jwtUtil.generateToken(verificationRequestDTO.serviceName(), verificationRequestDTO.role()))
-                .serviceName(verificationRequestDTO.serviceName())
-                .accessLevel(accessLevel)
-                .timeCreated(Instant.now())
-                .expired(false)
-                .revoked(false)
-                .build();
-        tokensRepository.save(tokensEntity);
+        // If no username or password is provided, we can affirm that this is a guest token and should be returned as such
+        if (verificationRequestDTO.isGuest()) {
+            TokensEntity tokensEntity = TokensEntity.builder()
+                    .token(jwtUtil.generateToken(verificationRequestDTO.serviceName(), "GUEST"))
+                    .serviceName(verificationRequestDTO.serviceName())
+                    .accessLevel(accessLevel)
+                    .timeCreated(Instant.now())
+                    .expired(false)
+                    .revoked(false)
+                    .build();
+            tokensRepository.save(tokensEntity);
 
-        RolesEntity rolesEntity = RolesEntity.builder().build();
-        return true;
+            return VerificationResponseDTO.successfulDTO(Map.of("token", tokensEntity.getToken(), "requestedRole", "GUEST"));
+        }
+
+        Optional<UserEntity> findUser = userRepository.findByEmailAndPassword(verificationRequestDTO.email(), verificationRequestDTO.password());
+        if (findUser.isEmpty()) {
+            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND.value(), "User not found or password incorrect");
+        }
+        UserEntity foundUser = findUser.get();
+        List<TokensEntity> tokensEntityList = foundUser.getTokensEntity();
+        AccessLevel requestedRole = AccessLevel.valueOf(verificationRequestDTO.requestedRole());
+        List<String> tokensAvailable = tokensEntityList.stream()
+                .filter(x-> !x.isExpired() && !x.isRevoked())
+                .filter(x -> requestedRole.equals(x.getAccessLevel()))
+                .map(TokensEntity::getToken)
+                .collect(Collectors.toList());
+        boolean findRole = foundUser.getRoles().stream().anyMatch(role -> role.getAccessLevel().equals(requestedRole));
+        if (!findRole && tokensAvailable.isEmpty()) {
+            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND.value(), "Could not find user role");
+        }
+        if (findRole && tokensAvailable.isEmpty()) {
+            // Since we don't have a token generated, we need to generate one.
+            String createToken = jwtUtil.generateToken(verificationRequestDTO.serviceName(), verificationRequestDTO.requestedRole());
+            TokensEntity tokensEntity = TokensEntity.builder()
+                    .token(createToken)
+                    .serviceName(verificationRequestDTO.serviceName())
+                    .user(foundUser)
+                    .accessLevel(accessLevel)
+                    .timeCreated(Instant.now())
+                    .expired(false)
+                    .revoked(false)
+                    .build();
+            tokensRepository.save(tokensEntity);
+            tokensAvailable.add(createToken);
+        }
+        return VerificationResponseDTO.successfulDTO(Map.of(
+                "token", tokensAvailable.get(0),
+                "requestedRole", requestedRole,
+                "tokensAvailable", tokensAvailable));
     }
 
 }

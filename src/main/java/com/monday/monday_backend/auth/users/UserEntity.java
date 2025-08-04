@@ -1,12 +1,14 @@
 package com.monday.monday_backend.auth.users;
 
 import com.monday.monday_backend.auth.roles.RolesEntity;
+import com.monday.monday_backend.auth.tokens.TokensEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -34,5 +36,10 @@ public class UserEntity {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "roles_id")
     )
-    private Set<RolesEntity> roles = new HashSet<>();
+    private Set<RolesEntity> roles;
+
+    // For guest tokens
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "token")
+    private List<TokensEntity> tokensEntity;
 }

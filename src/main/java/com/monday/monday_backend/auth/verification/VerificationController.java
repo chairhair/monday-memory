@@ -41,8 +41,7 @@ public class VerificationController {
             @RequestBody VerificationRequestDTO verificationRequestDTO
             ) {
 
-        //jwtService
-        return VerificationResponseDTO.successfulDTO(Map.of("token", token));
+        return jwtService.assignToken(verificationRequestDTO);
     }
 
 }

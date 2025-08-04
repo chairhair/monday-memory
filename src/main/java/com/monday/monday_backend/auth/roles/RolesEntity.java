@@ -19,8 +19,4 @@ public class RolesEntity {
 
     @Enumerated(EnumType.STRING)
     private AccessLevel accessLevel;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "token")
-    private TokensEntity token;
 }
