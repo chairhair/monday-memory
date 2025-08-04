@@ -21,8 +21,8 @@ public class UserEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private long user_id;
 
-    @Column(name = "username")
-    private String userName;
+    @Column(name = "serviceName")
+    private String serviceName;
 
     @Column(name = "email")
     private String email;
