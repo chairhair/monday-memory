@@ -14,18 +14,20 @@ import java.util.List;
 @RequestMapping("/user")
 public class UserController {
 
+    private final UserService userService;
+
     @PostMapping("/upsert")
     public UserResponseDTO upsertUser(@RequestBody UserRequestDTO userRequestDTO) {
-        return new UserResponseDTO();
+        return userService.upsertUser(userRequestDTO);
     }
 
     @DeleteMapping
-    public UserResponseDTO deleteUser(@RequestParam(required = true) List<Long> uuids) {
-        return new UserResponseDTO();
+    public void deleteUser(@RequestParam(required = true) List<Long> uuids) {
+        userService.deleteUsers(uuids);
     }
 
     @PostMapping
     public List<UserResponseDTO> getUsers(@RequestBody UserSearchRequestDTO userSearchRequestDTO) {
-        return new ArrayList<>();
+        return userService.retrieveUsers(userSearchRequestDTO);
     }
 }
