@@ -53,7 +53,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         // Extract service name or role from token claims
-        String serviceName = jwtService.extractServiceName(jwt); // <-- your custom method
+        String serviceName = tokensEntity.get().getServiceName(); // <-- your custom method
         String accessLevel = String.valueOf(tokensEntity.get().getAccessLevel());    // from DB
         String token = tokensEntity.get().getToken();                // optional tracking
 

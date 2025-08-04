@@ -32,11 +32,6 @@ public class JwtService {
         this.userRepository = userRepository;
     }
 
-    public String extractServiceName(String token) {
-        TokensEntity tokensEntity = tokensRepository.findByToken(token).orElse(null);
-        return (tokensEntity != null) ? tokensEntity.getServiceName() : null;
-    }
-
     /**
      * This code does the following. It will...
      * - Provide a token to guests if they currently do not have an account with the current system
