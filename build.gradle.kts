@@ -1,7 +1,5 @@
 plugins {
 	java
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
 	id("org.springframework.boot") version "4.0.0-M1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -10,6 +8,8 @@ group = "com.monday"
 version = "0.0.1-SNAPSHOT"
 
 java {
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
