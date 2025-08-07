@@ -20,7 +20,7 @@ public class SessionMemoryController {
         return new SessionMemoryResponseDTO(null, null, null, null, null);
     }
 
-    @PostMapping
+    @PostMapping("/list")
     public SessionMemoryResponseDTO getMemoryList(
             @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
         return new SessionMemoryResponseDTO(null, null, null, null, null);

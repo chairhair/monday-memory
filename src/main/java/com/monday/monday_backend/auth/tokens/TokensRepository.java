@@ -17,5 +17,4 @@ public interface TokensRepository extends CrudRepository<TokensEntity, Long> {
 
     List<TokensEntity> findByExpiredFalseAndTimeCreatedBefore(Instant cutoff);
 
-    void deleteByExpiryBefore(Instant now);
 }

@@ -8,19 +8,18 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 @Configuration
-@RequiredArgsConstructor
 public class SchedulerConfig {
 
     @Value("${spring.task.scheduling.pool.size}")
-    private final int defaultScheduledPoolSize;
+    private String defaultScheduledPoolSize;
 
     @Value("${spring.task.scheduling.thread-name-prefix}")
-    private final String defaultThreadNamePrefix;
+    private String defaultThreadNamePrefix;
 
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(defaultScheduledPoolSize);
+        scheduler.setPoolSize(Integer.parseInt(defaultScheduledPoolSize));
         scheduler.setThreadNamePrefix(defaultThreadNamePrefix);
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
         return scheduler;
