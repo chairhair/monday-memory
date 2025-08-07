@@ -40,6 +40,7 @@ public class TokensEntity {
     @Setter
     private boolean revoked;
 
+    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = true)
     private UserEntity user;

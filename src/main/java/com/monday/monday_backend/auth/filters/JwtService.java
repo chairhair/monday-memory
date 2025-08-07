@@ -85,7 +85,7 @@ public class JwtService {
             TokensEntity tokensEntity = new TokensEntity();
             tokensEntity.setToken(createToken);
             tokensEntity.setServiceName(verificationRequestDTO.serviceName());
-            //tokensEntity.setUser(foundUser);  //FIXME
+            tokensEntity.setUser(foundUser);
             tokensEntity.setAccessLevel(accessLevel);
             tokensEntity.setTimeCreated(Instant.now());
             tokensEntity.setExpired(false);

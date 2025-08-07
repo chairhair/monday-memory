@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -42,4 +43,11 @@ public class UserEntity {
     // For guest tokens
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TokensEntity> tokensEntity;
+
+    public void addRoles(RolesEntity role) {
+        if (roles == null || roles.isEmpty()) {
+            roles = new HashSet<>();
+        }
+        roles.add(role);
+    }
 }

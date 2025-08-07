@@ -66,7 +66,7 @@ public class UserService {
         newUser.setEmail(dto.emailAddress());
         newUser.setServiceName(dto.serviceName());
         newUser.setPassword(passwordEncoder.encode(dto.password()));
-        //newUser.setRoles(Set.of(rolesEntity)); //FIXME
+        newUser.addRoles(rolesEntity);
         userRepository.save(newUser);
         return UserResponseDTO.successfulDTO(newUser.getEmail(), newUser.getServiceName(), Set.of(AccessLevel.USER), new HashSet<>());
     }
