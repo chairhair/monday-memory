@@ -1,6 +1,7 @@
 package com.monday.monday_backend.query.memory;
 
 import com.monday.monday_backend.query.memory.dto.MemoryChunkDTO;
+import com.monday.monday_backend.query.memory.dto.SessionMemoryFilterRequestDTO;
 import com.monday.monday_backend.query.memory.dto.SessionMemoryRequestDTO;
 import com.monday.monday_backend.query.memory.dto.SessionMemoryResponseDTO;
 import lombok.RequiredArgsConstructor;
@@ -23,10 +24,7 @@ public class SessionMemoryController {
 
     @PostMapping
     public SessionMemoryResponseDTO getMemoryList(
-            @RequestParam(required = true) List<String> sessionIds,
-            @RequestParam(required = false) List<String> tags,
-            @RequestParam(required = false) Integer pageNum,
-            @RequestParam(required = false) Integer size) {
+            @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
         return new SessionMemoryResponseDTO(null, null, null, null);
     }
 
