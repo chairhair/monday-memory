@@ -12,7 +12,7 @@ import lombok.Setter;
 @Entity
 public class RolesEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long role_id;
 
     @Enumerated(EnumType.STRING)
