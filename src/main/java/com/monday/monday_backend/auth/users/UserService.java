@@ -62,12 +62,11 @@ public class UserService {
 
         RolesEntity rolesEntity = rolesRepository.findByAccessLevel(AccessLevel.USER).orElseThrow(() -> new RuntimeException("Default role USER not found"));
 
-        UserEntity newUser = UserEntity.builder()
-                .email(dto.emailAddress())
-                .serviceName(dto.serviceName())
-                .password(passwordEncoder.encode(dto.password()))
-                .roles(Set.of(rolesEntity))
-                .build();
+        UserEntity newUser = new UserEntity();
+        newUser.setEmail(dto.emailAddress());
+        newUser.setServiceName(dto.serviceName());
+        newUser.setPassword(passwordEncoder.encode(dto.password()));
+        //newUser.setRoles(Set.of(rolesEntity)); //FIXME
         userRepository.save(newUser);
         return UserResponseDTO.successfulDTO(newUser.getEmail(), newUser.getServiceName(), Set.of(AccessLevel.USER), new HashSet<>());
     }

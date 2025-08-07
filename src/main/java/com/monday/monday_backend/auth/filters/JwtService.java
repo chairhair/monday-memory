@@ -51,14 +51,13 @@ public class JwtService {
 
         // If no username or password is provided, we can affirm that this is a guest token and should be returned as such
         if (verificationRequestDTO.isGuest()) {
-            TokensEntity tokensEntity = TokensEntity.builder()
-                    .token(jwtUtil.generateToken(verificationRequestDTO.serviceName(), "GUEST"))
-                    .serviceName(verificationRequestDTO.serviceName())
-                    .accessLevel(accessLevel)
-                    .timeCreated(Instant.now())
-                    .expired(false)
-                    .revoked(false)
-                    .build();
+            TokensEntity tokensEntity = new TokensEntity();
+            tokensEntity.setToken(jwtUtil.generateToken(verificationRequestDTO.serviceName(), "GUEST"));
+            tokensEntity.setServiceName(verificationRequestDTO.serviceName());
+            tokensEntity.setAccessLevel(accessLevel);
+            tokensEntity.setTimeCreated(Instant.now());
+            tokensEntity.setExpired(false);
+            tokensEntity.setRevoked(false);
             tokensRepository.save(tokensEntity);
 
             return VerificationResponseDTO.successfulDTO(Map.of("token", tokensEntity.getToken(), "requestedRole", "GUEST"));
@@ -83,15 +82,14 @@ public class JwtService {
         if (findRole && tokensAvailable.isEmpty()) {
             // Since we don't have a token generated, we need to generate one.
             String createToken = jwtUtil.generateToken(verificationRequestDTO.serviceName(), verificationRequestDTO.requestedRole());
-            TokensEntity tokensEntity = TokensEntity.builder()
-                    .token(createToken)
-                    .serviceName(verificationRequestDTO.serviceName())
-                    .user(foundUser)
-                    .accessLevel(accessLevel)
-                    .timeCreated(Instant.now())
-                    .expired(false)
-                    .revoked(false)
-                    .build();
+            TokensEntity tokensEntity = new TokensEntity();
+            tokensEntity.setToken(createToken);
+            tokensEntity.setServiceName(verificationRequestDTO.serviceName());
+            //tokensEntity.setUser(foundUser);  //FIXME
+            tokensEntity.setAccessLevel(accessLevel);
+            tokensEntity.setTimeCreated(Instant.now());
+            tokensEntity.setExpired(false);
+            tokensEntity.setRevoked(false);
             tokensRepository.save(tokensEntity);
             tokensAvailable.add(createToken);
         }
