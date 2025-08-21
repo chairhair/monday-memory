@@ -3,6 +3,7 @@ package com.monday.monday_backend.query.memory.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.monday.monday_backend.query.memory.entity.MemoryChunkEntity;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "A single memory entry stored for a session")
@@ -13,4 +14,7 @@ public record MemoryChunkDTO(
         Instant timestamp,
         @Schema(description = "Tags used for filtering or semantic relevance", example = "[\"budget\", \"goal\"]")
         List<String> tags) {
+        public MemoryChunkEntity convertMemoryChunkToEntity() {
+                return new MemoryChunkEntity(this);
+        }
 }

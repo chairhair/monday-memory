@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/memory/session")
+@RequestMapping("/v1/memory/session")
 @RequiredArgsConstructor
 public class SessionMemoryController {
 

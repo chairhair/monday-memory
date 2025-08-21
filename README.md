@@ -9,3 +9,9 @@ DB_DRIVER_CLASS=org.h2.Driver
 DB_USER=sa
 DB_PASSWORD=
 ```
+
+### To start gradle
+
+```
+./load_bash_env.sh
+```

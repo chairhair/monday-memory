@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/memory/topic")
+@RequestMapping("/v1/memory/topic")
 @RequiredArgsConstructor
 public class TopicMemoryController {
 
