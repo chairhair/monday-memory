@@ -1,36 +1,38 @@
 package com.monday.monday_backend.query.memory.entity;
 
-import com.monday.monday_backend.query.memory.dto.SessionMemoryRequestDTO;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.Id;
+import lombok.*;
+import java.time.Instant;
 
-import java.util.List;
-
-@Getter
-@NoArgsConstructor
-@Schema(description = "Provides a database entry for a logical sequence of chunks tied to a serviceName and sessionId (e.g., a chat or task run).")
 @Entity
+@Table(name = "session_memory",
+        indexes = {
+                @Index(name="idx_session_subject_service", columnList = "subjectId,service,sessionId"),
+                @Index(name="idx_session_last_occurred", columnList = "lastOccurredAt")
+        })
+@Getter @Setter @NoArgsConstructor
 public class SessionMemoryEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long sessionMemoryId;
-
-    @Column(nullable = false)
-    private String serviceName;
-
-    @Column(nullable = false)
+    @Id @Column(length = 50)               // ULID/string
     private String sessionId;
 
-    @OneToMany(mappedBy = "memoryChunkId")
-    private List<MemoryChunkEntity> sessionsDiscussed;
+    @Column(nullable = false, length = 64)
+    private String service;                // e.g. "chat", "note", "etl"
 
-    public SessionMemoryEntity(SessionMemoryRequestDTO sessionMemoryRequestDTO) {
-        this.serviceName = sessionMemoryRequestDTO.serviceName();
-        this.sessionId = sessionMemoryRequestDTO.sessionId();
-        this.sessionsDiscussed = sessionMemoryRequestDTO.convertMemoryChunkListToEntityList();
-    }
+    @Column(nullable = false, length = 64)
+    private String subjectId;
+
+    @Column(nullable = false)
+    private Instant createdAt;
+
+    @Column(nullable = false)
+    private Instant updatedAt;
+
+    @Column(nullable = false)
+    private int chunkCount;
+
+    private Instant lastOccurredAt;
+
+    @Version
+    private long version;                  // optimistic updates on counters
 }

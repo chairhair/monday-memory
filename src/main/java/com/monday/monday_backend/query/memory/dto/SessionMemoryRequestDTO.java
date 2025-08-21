@@ -16,8 +16,5 @@ public record SessionMemoryRequestDTO(
         @Schema(description = "List of memory chunks to save")
         List<MemoryChunkDTO> memoryChunk
 ) {
-        public List<MemoryChunkEntity> convertMemoryChunkListToEntityList() {
-               return  memoryChunk.stream().map(MemoryChunkDTO::convertMemoryChunkToEntity).toList();
-        }
 }
 

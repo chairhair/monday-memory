@@ -1,6 +1,7 @@
 package com.monday.monday_backend.query.memory.dto;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 
 import com.monday.monday_backend.query.memory.entity.MemoryChunkEntity;
@@ -14,7 +15,4 @@ public record MemoryChunkDTO(
         Instant timestamp,
         @Schema(description = "Tags used for filtering or semantic relevance", example = "[\"budget\", \"goal\"]")
         List<String> tags) {
-        public MemoryChunkEntity convertMemoryChunkToEntity() {
-                return new MemoryChunkEntity(this);
-        }
 }
