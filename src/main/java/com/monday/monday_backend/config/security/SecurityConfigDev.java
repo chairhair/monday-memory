@@ -8,14 +8,21 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@Profile("dev")
+@Profile({"dev", "test"})
 public class SecurityConfigDev {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(); // strength defaults to 10
+    }
 
     @Bean
     SecurityFilterChain devSecurity(HttpSecurity http, DevImpersonationFilter devImpersonationFilter) throws Exception {
