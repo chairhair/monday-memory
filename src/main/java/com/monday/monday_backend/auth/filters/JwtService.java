@@ -3,7 +3,6 @@ package com.monday.monday_backend.auth.filters;
 import com.monday.monday_backend.auth.dto.VerificationRequestDTO;
 import com.monday.monday_backend.auth.dto.VerificationResponseDTO;
 import com.monday.monday_backend.auth.roles.AccessLevel;
-import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.tokens.JwtUtil;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.tokens.TokensRepository;
@@ -13,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
