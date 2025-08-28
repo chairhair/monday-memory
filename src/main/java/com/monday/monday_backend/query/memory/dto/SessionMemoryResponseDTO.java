@@ -6,6 +6,9 @@ import java.util.List;
 
 @Schema(description = "Response containing stored memory chunks for one or more sessions")
 public record SessionMemoryResponseDTO(
+        @Schema(description = "HTTP status code", example = "200")
+        int statusCode,
+
         @Schema(description = "Session IDs retrieved", example = "[\"abc123\"]")
         List<String> sessionIds,
 

@@ -6,22 +6,25 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "idempotency")
-@Getter @Setter @NoArgsConstructor
 public class IdempotencyEntry {
+    @Id
+    @Column(name = "idempotency_key", length = 150, nullable = false)
+    private String idempotencyKey;
 
-    @Id @Column(length = 150)              // "sessionId:key" or similar
-    private String key;
-
-    @Column(length = 64, nullable = false)
+    @Column(name = "request_hash", length = 64, nullable = false)
     private String requestHash;
 
-    @Lob @Basic(fetch = FetchType.LAZY)
+    @Column(name = "status_code", nullable = false)
+    private Integer statusCode;
+
+    @Lob
+    @Column(name = "response_json")
     private String responseJson;
 
-    private int statusCode;
+    // keep your timestamp precision/type if you need it
+    @Column(name = "created_at", columnDefinition = "timestamp(6) with time zone", nullable = false)
+    private java.time.Instant createdAt;
 
-    @Column(nullable = false)
-    private Instant createdAt;
-
-    private Instant expiresAt;
+    @Column(name = "expires_at", columnDefinition = "timestamp(6) with time zone")
+    private java.time.Instant expiresAt;
 }

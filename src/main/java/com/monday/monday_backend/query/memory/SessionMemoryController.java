@@ -17,13 +17,13 @@ public class SessionMemoryController {
 
     @PostMapping
     public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO){
-        return new SessionMemoryResponseDTO(null, null, null, null, null);
+        return new SessionMemoryResponseDTO(200, null, null, null, null, null);
     }
 
     @PostMapping("/list")
     public SessionMemoryResponseDTO getMemoryList(
             @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
-        return new SessionMemoryResponseDTO(null, null, null, null, null);
+        return new SessionMemoryResponseDTO(200, null, null, null, null, null);
     }
 
     @DeleteMapping
