@@ -1,4 +1,4 @@
-package com.monday.monday_backend.query.memory;
+package com.monday.monday_backend.memory;
 
 import org.springframework.stereotype.Service;
 

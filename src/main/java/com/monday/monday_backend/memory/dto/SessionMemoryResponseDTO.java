@@ -1,4 +1,4 @@
-package com.monday.monday_backend.query.memory.dto;
+package com.monday.monday_backend.memory.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

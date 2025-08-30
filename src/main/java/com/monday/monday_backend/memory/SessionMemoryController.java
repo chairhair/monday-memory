@@ -1,13 +1,22 @@
-package com.monday.monday_backend.query.memory;
+package com.monday.monday_backend.memory;
 
-import com.monday.monday_backend.query.memory.dto.SessionMemoryFilterRequestDTO;
-import com.monday.monday_backend.query.memory.dto.SessionMemoryRequestDTO;
-import com.monday.monday_backend.query.memory.dto.SessionMemoryResponseDTO;
+import com.monday.monday_backend.memory.dto.SessionMemoryFilterRequestDTO;
+import com.monday.monday_backend.memory.dto.SessionMemoryRequestDTO;
+import com.monday.monday_backend.memory.dto.SessionMemoryResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * "Hey, what just happened?" - This class
+ *
+ * This class details what just happened under a chat.
+ * Regards:
+ * - Short-lived, recency-weighted context (e.g. last N Turns/ last 2-24 hours)
+ * - Stored under a Redis/Elasticsearch.
+ * - Used when we need to immediate render the convo state without searching
+ */
 @RestController
 @RequestMapping("/v1/memory/session")
 @RequiredArgsConstructor

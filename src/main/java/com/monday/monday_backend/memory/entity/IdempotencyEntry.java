@@ -1,4 +1,4 @@
-package com.monday.monday_backend.query.memory.entity;
+package com.monday.monday_backend.memory.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

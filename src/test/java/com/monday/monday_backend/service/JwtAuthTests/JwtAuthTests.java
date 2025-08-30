@@ -1,8 +1,7 @@
 package com.monday.monday_backend.service.JwtAuthTests;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.monday.monday_backend.query.memory.dto.SessionMemoryFilterRequestDTO;
-import com.monday.monday_backend.query.memory.dto.SessionMemoryResponseDTO;
+import com.monday.monday_backend.memory.dto.SessionMemoryFilterRequestDTO;
 import com.monday.monday_backend.service.AbstractJwtResourceServerTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

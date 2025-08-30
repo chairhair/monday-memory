@@ -1,10 +1,8 @@
-package com.monday.monday_backend.query.memory.dto;
+package com.monday.monday_backend.memory.dto;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 
-import com.monday.monday_backend.query.memory.entity.MemoryChunkEntity;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "A single memory entry stored for a session")
