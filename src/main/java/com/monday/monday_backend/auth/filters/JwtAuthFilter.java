@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * This handles our JWT authentication. Keep in mind, when testing, we want to make sure that
+ * This handles our JWT authentication.
  */
 @ConditionalOnProperty(name = "app.security.jwt.enabled", havingValue = "true")
 @Component
