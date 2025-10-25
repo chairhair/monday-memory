@@ -11,7 +11,11 @@ import java.util.List;
 /**
  * "Hey, what just happened?" - This class
  *
- * This class details what just happened under a chat.
+ * Primary Use Case: Used when the memory is tied to a single, user session or interaction chain
+ * (literally "Hey, what's happened within our chat so far")
+ * Requirements: user JWT or a scoped session token (Short TTL)
+ * Typical Use: Used after a chat prompt appears or when the guest rotates to important topics to them
+ *
  * Regards:
  * - Short-lived, recency-weighted context (e.g. last N Turns/ last 2-24 hours)
  * - Stored under a Redis/Elasticsearch.

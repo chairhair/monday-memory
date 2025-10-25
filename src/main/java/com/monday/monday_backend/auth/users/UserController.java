@@ -9,6 +9,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ *
+ * Manages and provides CRUD operations to our known users
+ *
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/user")
