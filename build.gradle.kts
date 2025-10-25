@@ -2,7 +2,22 @@ plugins {
 	java
 	id("org.springframework.boot") version "4.0.0-M1"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("com.google.cloud.tools.jib") version "3.4.3"
 }
+
+jib {
+	from { image = "eclipse-temurin:21-jre" }
+	to {
+		image = "ghcr.io/chairhair/monday-memory"
+		tags = setOf("latest")
+	}
+	container {
+		ports = listOf("8080")
+		jvmFlags = listOf("-Xms256m", "-Xmx512m")
+		creationTime = "USE_CURRENT_TIMESTAMP"
+	}
+}
+
 
 group = "com.monday"
 version = "0.0.1-SNAPSHOT"
