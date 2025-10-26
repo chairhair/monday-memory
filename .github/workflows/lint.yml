@@ -1,7 +1,7 @@
 name: Lint & Static Checks (backend)
 on:
-  pull_request: { branches: [ main, develop ] }
-  push: { branches: [ main, develop ] }
+  pull_request: { branches: [ master ] }
+  push: { branches: [ master ] }
 permissions: { contents: read }
 concurrency: { group: backend-lint-${{ github.ref }}, cancel-in-progress: true }
 

@@ -1,7 +1,7 @@
 name: Build & Deploy (backend)
 on:
   push:
-    branches: [ develop ]
+    branches: [ master ]
     tags: [ 'v*.*.*' ]
   workflow_dispatch:
 
@@ -59,7 +59,7 @@ jobs:
           ./gradlew jib -Djib.to.image=${{ env.IMAGE }} -Djib.to.tags=$TAGS --no-daemon
 
   deploy_env:
-    needs: [meta, build_push]
+    needs: [meta, build_push, ]
     runs-on: ubuntu-latest
     environment: ${{ needs.meta.outputs.is_prod == 'true' && 'production' || 'staging' }}
     steps:
