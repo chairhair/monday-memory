@@ -1,7 +1,7 @@
 name: Build & Deploy (backend)
 on:
   push:
-    branches: [ develop ]
+    branches: [ master ]
     tags: [ 'v*.*.*' ]
   workflow_dispatch:
 
@@ -49,6 +49,9 @@ jobs:
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      - name: Pass execution command to gradle
+        run: chmod +x gradlew
+
       - name: Assemble (skip tests for speed)
         run: ./gradlew clean assemble -x test --no-daemon
 
@@ -59,7 +62,7 @@ jobs:
           ./gradlew jib -Djib.to.image=${{ env.IMAGE }} -Djib.to.tags=$TAGS --no-daemon
 
   deploy_env:
-    needs: [meta, build_push]
+    needs: [meta, build_push, ]
     runs-on: ubuntu-latest
     environment: ${{ needs.meta.outputs.is_prod == 'true' && 'production' || 'staging' }}
     steps:
