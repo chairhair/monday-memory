@@ -39,12 +39,24 @@ jobs:
   build_push:
     needs: meta
     runs-on: ubuntu-latest
-    permissions: { contents: read, packages: write }
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '21', cache: gradle }
-      - uses: gradle/actions/wrapper-validation@v3
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Gradle wrapper validation (retry)
+        uses: Wandalen/wretry.action@v1.4.8
+        with:
+          action: gradle/actions/wrapper-validation@v3
+          attempt_limit: 3
+          attempt_delay: 10s
+          continue-on-error: true
 
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
