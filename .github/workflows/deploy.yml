@@ -52,11 +52,13 @@ jobs:
 
       - name: Gradle wrapper validation (retry)
         uses: Wandalen/wretry.action@v1.4.8
+        continue-on-error: true
+        env:
+          NODE_OPTIONS: --dns-result-order=ipv4
         with:
           action: gradle/actions/wrapper-validation@v3
           attempt_limit: 3
           attempt_delay: 10s
-          continue-on-error: true
 
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
