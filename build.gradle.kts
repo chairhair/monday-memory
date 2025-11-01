@@ -69,7 +69,8 @@ dependencies {
 	testImplementation("org.springframework.security:spring-security-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-	testImplementation("com.nimbusds:nimbus-jose-jwt:9.37") // or your existing version
+	testImplementation("org.jetbrains.kotlin:kotlin-reflect:1.9.+")
+	testImplementation("com.nimbusds:nimbus-jose-jwt:9.37")
 
 }
 

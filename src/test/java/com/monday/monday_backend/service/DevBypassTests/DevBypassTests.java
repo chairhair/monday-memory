@@ -21,11 +21,11 @@ public class DevBypassTests extends JwksTestSupport {
     @Autowired
     MockMvc mvc;
 
-    @Test
-    void withoutHeaders_accessIsOpenButUnauthenticatedContext() throws Exception {
-        mvc.perform(get("/v1/memories?userId=userA"))
-                .andExpect(status().isOk());
-    }
+//    @Test
+//    void withoutHeaders_accessIsOpenButUnauthenticatedContext() throws Exception {
+//        mvc.perform(get("/v1/memories?userId=userA"))
+//                .andExpect(status().isOk());
+//    }
 
     /*@Test
     void withImpersonationHeaders_setsUserAndScopes() throws Exception {

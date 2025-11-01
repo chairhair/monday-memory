@@ -16,7 +16,7 @@ public class UserPlan {
 
     @Setter
     @Column(nullable=false)
-    String userIdFk;
+    String userId;
 
     @Setter
     @Enumerated(EnumType.STRING)

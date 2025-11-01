@@ -1,5 +1,6 @@
 package com.monday.monday_backend.memory;
 
+import com.monday.monday_backend.memory.dto.TopicMemoryRequestDTO;
 import com.monday.monday_backend.memory.dto.TopicMemoryResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +28,7 @@ public class TopicMemoryController {
      */
     @PostMapping
     public TopicMemoryResponseDTO collateMemory(
-            @RequestBody TopicMemoryResponseDTO collateMemoryResponseDTO
+            @RequestBody TopicMemoryRequestDTO collateMemoryResponseDTO
     ) {
         return new TopicMemoryResponseDTO(0, null, null, 0, null);
     }

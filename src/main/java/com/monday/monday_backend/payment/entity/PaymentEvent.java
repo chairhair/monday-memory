@@ -15,7 +15,7 @@ public class PaymentEvent {
 
     @Setter
     @Column(nullable=false)
-    String userIdFk;
+    String userId;
 
     @Setter
     @Column(nullable=false)
