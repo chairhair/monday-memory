@@ -25,6 +25,7 @@ public class UserPlanEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
+    @Setter
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, unique = true,
                 foreignKey = @ForeignKey(name = "fk_user_plan_user"))

@@ -1,6 +1,6 @@
 package com.monday.monday_backend.payment.repo;
 
-import com.monday.monday_backend.payment.entity.UserPlan;
+import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.utils.PlanTier;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -10,10 +10,10 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.Optional;
 
-public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
-    Optional<UserPlan> findByUserId(String userId);
+public interface UserPlanRepository extends JpaRepository<UserPlanEntity, Long> {
+    Optional<UserPlanEntity> findByUser_Id(Long userId);
 
-    Optional<UserPlan> findByStripeCustomerId(String stripeCustomerId);
+    Optional<UserPlanEntity> findByStripeCustomerId(String stripeCustomerId);
 
     boolean existsByUserId(String userId);
 
