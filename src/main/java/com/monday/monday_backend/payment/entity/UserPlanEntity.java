@@ -1,7 +1,6 @@
 package com.monday.monday_backend.payment.entity;
 
 import com.monday.monday_backend.auth.users.UserEntity;
-import com.monday.monday_backend.payment.utils.PlanTier;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,9 +31,9 @@ public class UserPlanEntity {
     private UserEntity user;
 
     @Setter
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tier", nullable = false, length = 32)
-    private PlanTier tier = PlanTier.FREE;
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="price_plan_id")
+    private PricePlanEntity plan;
 
     @Setter
     @Column(name = "stripe_customer_id", length = 255, unique = true)

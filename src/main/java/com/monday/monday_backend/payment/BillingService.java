@@ -1,14 +1,13 @@
 package com.monday.monday_backend.payment;
 
-import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.monday_backend.auth.users.UserRepository;
 import com.monday.monday_backend.payment.core.PaymentProvider;
 import com.monday.monday_backend.payment.dto.CreateCheckoutResponse;
 import com.monday.monday_backend.payment.entity.PaymentEvent;
+import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.PaymentEventRepository;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
-import com.monday.monday_backend.payment.utils.PlanTier;
 import com.stripe.model.Event;
 import com.stripe.model.Invoice;
 import com.stripe.model.Subscription;
@@ -68,8 +67,8 @@ public class BillingService {
     private void onInvoicePaid(Event event) {
         Invoice inv = (Invoice) event.getDataObjectDeserializer().getObject().orElseThrow();
         String customerId = inv.getCustomer();
-        // FIXME: I need to confirm that inventory is actually getting the subscription.
-        String subId = inv.getMetadata().get("SUBSCRIPTION");
+        // TODO: I need to confirm that inventory is actually getting the subscription.
+        String subId = inv.getMetadata().get("SUBSCRIPTION"); // inv.getSubscription();
         Instant periodEnd = Instant.ofEpochSecond(inv.getLines().getData().get(0).getPeriod().getEnd());
         upsertPro(resolveUserIdFromCustomer(customerId), customerId, subId, periodEnd);
     }
@@ -78,9 +77,8 @@ public class BillingService {
         Subscription sub = (Subscription) event.getDataObjectDeserializer().getObject().orElseThrow();
         String customerId = sub.getCustomer();
 
-        // FIXME: We're going to need to create our own entity class here
-        Instant periodEnd = Instant.ofEpochSecond(sub.getCurrentPeriodEnd());
-        PlanTier tier = sub.getStatus().equals("active") ? PlanTier.PRO : PlanTier.FREE;
+        Instant periodEnd = Instant.ofEpochSecond(sub.getTrialEnd());
+
         setTier(resolveUserIdFromCustomer(customerId), tier, customerId, sub.getId(), periodEnd);
     }
 
@@ -88,12 +86,11 @@ public class BillingService {
 
         UserPlanEntity userPlan = userPlanRepository.findByUser_Id(userId).orElseGet(() -> {
             UserPlanEntity p = new UserPlanEntity();
-            p.setUser(userRepository.getReferenceById(userId)); p.setTier(PlanTier.FREE);
+            p.setUser(userRepository.getReferenceById(userId)); p.setPlan(new PricePlanEntity());
             p.setUpdatedAt(Instant.now());
             return p;
         });
 
-        //userPlan.setTier(PlanTier.PRO);
         userPlan.setStripeCustomerId(customerId);
         userPlan.setStripeSubscriptionId(subId);
         if (periodEnd != null) userPlan.setCurrentPeriodEnd(periodEnd);
@@ -101,9 +98,9 @@ public class BillingService {
         userPlanRepository.save(userPlan);
     }
 
-    private void setTier(Long userId, PlanTier tier, String cust, String sub, Instant periodEnd) {
+    private void setTier(Long userId, String tier, String cust, String sub, Instant periodEnd) {
         userPlanRepository.findByUser_Id(userId).ifPresent(plan -> {
-            plan.setTier(tier);
+            plan.setPlan(PricePlanEntity.findByCode(tier));
             plan.setStripeCustomerId(cust);
             plan.setStripeSubscriptionId(sub);
             plan.setCurrentPeriodEnd(periodEnd);

@@ -1,7 +1,6 @@
 package com.monday.monday_backend.payment.repo;
 
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
-import com.monday.monday_backend.payment.utils.PlanTier;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
