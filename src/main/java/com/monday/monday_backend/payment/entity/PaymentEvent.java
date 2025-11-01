@@ -25,10 +25,12 @@ public class PaymentEvent {
     @Column(nullable = false, unique = true)
     String stripeEventId;
 
+    @Setter
     @Column(nullable=false)
     Instant receivedAt;
 
     // raw audit for replay
+    @Setter
     @Lob
     String payloadJson;
 }

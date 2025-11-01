@@ -2,6 +2,7 @@ package com.monday.monday_backend.auth.users;
 
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
+import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,12 +14,18 @@ import java.util.Set;
 
 @Getter
 @NoArgsConstructor
+@Table(name = "user_entity")
 @Entity
 public class UserEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long user_id;
+    @Column(name = "id")
+    private String id;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @PrimaryKeyJoinColumn
+    private UserPlanEntity userPlan;
 
     @Setter
     @Column(name = "serviceName")
