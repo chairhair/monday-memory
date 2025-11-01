@@ -7,6 +7,7 @@ import com.monday.monday_backend.payment.entity.PaymentEvent;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.PaymentEventRepository;
+import com.monday.monday_backend.payment.repo.PricePlanRepository;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
 import com.stripe.model.Event;
 import com.stripe.model.Invoice;
@@ -26,6 +27,7 @@ public class BillingService {
     private final PaymentProvider provider;
     private final UserPlanRepository userPlanRepository;
     private final PaymentEventRepository paymentEventRepository;
+    private final PricePlanRepository pricePlanRepository;
 
     @Transactional
     public CreateCheckoutResponse startProCheckout(Long userId, String successUrl, String cancelUrl) {
@@ -100,7 +102,7 @@ public class BillingService {
 
     private void setTier(Long userId, String tier, String cust, String sub, Instant periodEnd) {
         userPlanRepository.findByUser_Id(userId).ifPresent(plan -> {
-            plan.setPlan(PricePlanEntity.findByCode(tier));
+            plan.setPlan(pricePlanRepository.findByCode(tier).orElseThrow());
             plan.setStripeCustomerId(cust);
             plan.setStripeSubscriptionId(sub);
             plan.setCurrentPeriodEnd(periodEnd);

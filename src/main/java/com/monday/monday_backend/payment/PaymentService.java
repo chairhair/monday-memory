@@ -1,6 +1,5 @@
 package com.monday.monday_backend.payment;
 
-import com.monday.monday_backend.auth.users.UserRepository;
 import com.monday.monday_backend.payment.config.StripeConfiguration;
 import com.monday.monday_backend.payment.core.PaymentProvider;
 import com.monday.monday_backend.payment.dto.CreateCheckoutResponse;
@@ -11,7 +10,6 @@ import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor

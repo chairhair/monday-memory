@@ -1,5 +1,6 @@
 package com.monday.monday_backend.payment.repo;
 
+import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -20,7 +21,7 @@ public interface UserPlanRepository extends JpaRepository<UserPlanEntity, Long> 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
            update UserPlan p
-              set p.tier = :tier,
+              set p.plan = :plan,
                   p.stripeCustomerId = :customerId,
                   p.stripeSubscriptionId = :subscriptionId,
                   p.currentPeriodEnd = :currentPeriodEnd,
@@ -28,7 +29,7 @@ public interface UserPlanRepository extends JpaRepository<UserPlanEntity, Long> 
             where p.userId = :userId
            """)
     int updateEntitlement(@Param("userId") String userId,
-                          @Param("tier") PlanTier tier,
+                          @Param("plan") PricePlanEntity tier,
                           @Param("customerId") String customerId,
                           @Param("subscriptionId") String subscriptionId,
                           @Param("currentPeriodEnd") Instant currentPeriodEnd,
