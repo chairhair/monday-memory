@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface PricePlanRepository extends JpaRepository<PricePlanEntity, Long> {
     Optional<PricePlanEntity> findByCode(String code);
 
+    Optional<PricePlanEntity> findByStripePriceId(String stripePriceId);
 }

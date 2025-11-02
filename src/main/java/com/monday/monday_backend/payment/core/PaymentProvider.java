@@ -1,7 +1,7 @@
 package com.monday.monday_backend.payment.core;
 
-import com.monday.monday_backend.payment.dto.CreateCheckoutResponse;
+import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
 
 public interface PaymentProvider {
-    CreateCheckoutResponse createSubscriptionCheckout(Long userId, String successUrl, String cancelUrl);
+    StartCheckoutResponseDTO createSubscriptionCheckout(Long userId, String pricePlan, String successUrl, String cancelUrl);
 }

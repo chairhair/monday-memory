@@ -2,17 +2,18 @@ package com.monday.monday_backend.payment;
 
 import com.monday.monday_backend.auth.users.UserRepository;
 import com.monday.monday_backend.payment.core.PaymentProvider;
-import com.monday.monday_backend.payment.dto.CreateCheckoutResponse;
+import com.monday.monday_backend.payment.dto.StartCheckoutRequestDTO;
+import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
 import com.monday.monday_backend.payment.entity.PaymentEvent;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.PaymentEventRepository;
 import com.monday.monday_backend.payment.repo.PricePlanRepository;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
-import com.stripe.model.Event;
-import com.stripe.model.Invoice;
-import com.stripe.model.Subscription;
+import com.stripe.exception.StripeException;
+import com.stripe.model.*;
 import com.stripe.model.checkout.Session;
+import com.stripe.param.SubscriptionRetrieveParams;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,15 +25,9 @@ import java.time.Instant;
 public class BillingService {
 
     private final UserRepository userRepository;
-    private final PaymentProvider provider;
     private final UserPlanRepository userPlanRepository;
     private final PaymentEventRepository paymentEventRepository;
     private final PricePlanRepository pricePlanRepository;
-
-    @Transactional
-    public CreateCheckoutResponse startProCheckout(Long userId, String successUrl, String cancelUrl) {
-        return provider.createSubscriptionCheckout(userId, successUrl, cancelUrl);
-    }
 
     @Transactional
     public void handleStripeEvent(Event event) {
@@ -57,38 +52,70 @@ public class BillingService {
     }
 
     public void onCheckoutCompleted(Event event) {
-        Session session = (Session) event.getDataObjectDeserializer()
-                .getObject().orElseThrow();
-        Long userId = Long.parseLong(session.getMetadata().get("userId"));
-        String subId = session.getSubscription();
-        String customerId = session.getCustomer();
+        // 1) Get the Checkout Session from the webhook payload
+        EventDataObjectDeserializer des = event.getDataObjectDeserializer();
+        StripeObject obj = des.getObject().orElseThrow(() -> new IllegalStateException("checkout.session.completed without object"));
+        if (!(obj instanceof Session session)) {
+            throw new IllegalStateException("Webhook object is not a Checkout Session");
+        }
 
-        upsertPro(userId, subId, customerId, null);
+        final String customerId = session.getCustomer();
+        final String subId = session.getSubscription();
+
+        if (customerId == null || subId == null) {
+            throw new IllegalStateException("Missing customer or subscription on session");
+        }
+
+        // 2) Retrieve Subscription with expanded price so we can map plan
+        SubscriptionRetrieveParams subParams = SubscriptionRetrieveParams.builder()
+                .addExpand("items.data.price")
+                .build();
+        Subscription sub = null;
+        try {
+            sub = Subscription.retrieve(subId, subParams, null);
+        } catch (StripeException e) {
+            throw new IllegalStateException("Subscription doesn't exist: "+subId, e);
+        }
+
+        String priceId = sub.getItems().getData().get(0).getPrice().getId();
+        Instant periodEnd = Instant.ofEpochSecond(sub.getTrialEnd());
+
+        // 3) Now, map Stripe price -> Price Plan Entity in your DB
+        PricePlanEntity pricePlanEntity = pricePlanRepository.findByStripePriceId(priceId).orElseThrow(() -> new IllegalStateException("Unknown stripe price: " + priceId));
+
+        upsertPro(resolveUserIdFromCustomer(customerId), subId, customerId, periodEnd, pricePlanEntity);
     }
 
     private void onInvoicePaid(Event event) {
         Invoice inv = (Invoice) event.getDataObjectDeserializer().getObject().orElseThrow();
         String customerId = inv.getCustomer();
         // TODO: I need to confirm that inventory is actually getting the subscription.
-        String subId = inv.getMetadata().get("SUBSCRIPTION"); // inv.getSubscription();
+        String subId = inv.getMetadata().get("subscription"); // inv.getSubscription();
         Instant periodEnd = Instant.ofEpochSecond(inv.getLines().getData().get(0).getPeriod().getEnd());
-        upsertPro(resolveUserIdFromCustomer(customerId), customerId, subId, periodEnd);
+
+        String priceId = inv.getLines().getData().get(0).getMetadata().get("PRICE_ID");
+        PricePlanEntity pricePlanEntity = pricePlanRepository.findByStripePriceId(priceId).orElseThrow(() -> new IllegalStateException("unknown prices provided"));
+
+        upsertPro(resolveUserIdFromCustomer(customerId), customerId, subId, periodEnd, pricePlanEntity);
     }
 
     private void onSubUpdated(Event event) {
         Subscription sub = (Subscription) event.getDataObjectDeserializer().getObject().orElseThrow();
         String customerId = sub.getCustomer();
+        String priceId = sub.getItems().getData().get(0).getPrice().getId();
+
+        PricePlanEntity pricePlanEntity = pricePlanRepository.findByStripePriceId(priceId).orElseThrow(() -> new IllegalStateException("unknown prices provided"));
 
         Instant periodEnd = Instant.ofEpochSecond(sub.getTrialEnd());
 
-        setTier(resolveUserIdFromCustomer(customerId), tier, customerId, sub.getId(), periodEnd);
+        setTier(resolveUserIdFromCustomer(customerId), pricePlanEntity, customerId, sub.getId(), periodEnd);
     }
 
-    private void upsertPro(Long userId, String subId, String customerId, Instant periodEnd) {
+    private void upsertPro(Long userId, String subId, String customerId, Instant periodEnd, PricePlanEntity pricePlanEntity) {
 
         UserPlanEntity userPlan = userPlanRepository.findByUser_Id(userId).orElseGet(() -> {
             UserPlanEntity p = new UserPlanEntity();
-            p.setUser(userRepository.getReferenceById(userId)); p.setPlan(new PricePlanEntity());
+            p.setUser(userRepository.getReferenceById(userId)); p.setPlan(pricePlanEntity);
             p.setUpdatedAt(Instant.now());
             return p;
         });
@@ -100,9 +127,9 @@ public class BillingService {
         userPlanRepository.save(userPlan);
     }
 
-    private void setTier(Long userId, String tier, String cust, String sub, Instant periodEnd) {
+    private void setTier(Long userId, PricePlanEntity tier, String cust, String sub, Instant periodEnd) {
         userPlanRepository.findByUser_Id(userId).ifPresent(plan -> {
-            plan.setPlan(pricePlanRepository.findByCode(tier).orElseThrow());
+            plan.setPlan(tier);
             plan.setStripeCustomerId(cust);
             plan.setStripeSubscriptionId(sub);
             plan.setCurrentPeriodEnd(periodEnd);
