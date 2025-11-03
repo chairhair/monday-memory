@@ -11,8 +11,6 @@ import org.springframework.context.annotation.Configuration;
 public class StripeConfiguration {
     private String secretKey;
     private String webhookSecret;
-    private String priceIdMonthly;
-    private String priceIdAnnually;
 
     @PostConstruct
     void init() { com.stripe.Stripe.apiKey = secretKey; }

@@ -1,9 +1,11 @@
 package com.monday.monday_backend.payment;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.payment.dto.StartCheckoutRequestDTO;
 import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,9 +17,10 @@ public class PaymentController {
 
     @PostMapping("/checkout")
     public StartCheckoutResponseDTO startCheckout(
-            @RequestParam(required = false) Long userId,
+            @AuthenticationPrincipal AuthUser authUser,
             @RequestBody @Valid StartCheckoutRequestDTO req
             ) {
+        Long userId = authUser != null && authUser.id() != null ? Long.parseLong(authUser.id()) : null;
         return paymentService.createSubscriptionCheckout(userId, req.planCode(), req.successUrl(), req.cancelUrl());
     }
 }

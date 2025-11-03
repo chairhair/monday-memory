@@ -41,13 +41,9 @@ public class PaymentService implements PaymentProvider {
                 .setClientReferenceId(knownUserId)                   // may be null; Stripe accepts it
                 .putMetadata("userId", String.valueOf(userId))  // metadata always String
                 .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setPrice(cfg.getPriceIdMonthly())
+                        .setPrice(pricePlanEntity.getStripePriceId())
                         .setQuantity(1L)
-                        .build())    // Creates Monthly Program
-                .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setPrice(cfg.getPriceIdAnnually())
-                        .setQuantity(1L)
-                        .build())    // Creates Monthly Program
+                        .build())
                 .build();
         try {
             Session session = Session.create(params);
