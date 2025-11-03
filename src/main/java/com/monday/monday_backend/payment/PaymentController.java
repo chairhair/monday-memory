@@ -23,4 +23,6 @@ public class PaymentController {
         Long userId = authUser != null && authUser.id() != null ? Long.parseLong(authUser.id()) : null;
         return paymentService.createSubscriptionCheckout(userId, req.planCode(), req.successUrl(), req.cancelUrl());
     }
+
+
 }
