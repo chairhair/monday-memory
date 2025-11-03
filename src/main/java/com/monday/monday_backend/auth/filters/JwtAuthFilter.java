@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.filters;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.tokens.TokensRepository;
 import jakarta.servlet.FilterChain;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -18,8 +20,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static com.monday.monday_backend.auth.filters.JwtAuthHelper.*;
 
 /**
  * This handles our JWT authentication.
@@ -37,6 +44,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
 
@@ -49,31 +61,68 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7); // Remove "Bearer "
         logger.info("JWT removed Bearer " + jwt);
-        Optional<TokensEntity> tokensEntity = tokensRepository.findByToken(jwt);
-
-        if (tokensEntity.isEmpty() || tokensEntity.get().isExpired() || tokensEntity.get().isRevoked()) {
-            // Token is invalid — skip authentication
+        if (jwt.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Extract service name or role from token claims
-        String serviceName = tokensEntity.get().getServiceName(); // <-- your custom method
-        String accessLevel = String.valueOf(tokensEntity.get().getAccessLevel());    // from DB
-        String token = tokensEntity.get().getToken();                // optional tracking
+        try {
+            Optional<TokensEntity> tokensEntity = tokensRepository.findByToken(jwt);
+            if (tokensEntity.isEmpty() || tokensEntity.get().isExpired() || tokensEntity.get().isRevoked()) {
+                // Token is invalid — skip authentication
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-        // Create Spring authority
-        var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + accessLevel));
+            Map<String, Object> claims = jwtService.verify(jwt);
 
-        // Create the Authentication object
-        UsernamePasswordAuthenticationToken authentication =
-            new UsernamePasswordAuthenticationToken(serviceName, null, authorities);
+            String userId = asString(claims.get("sub"));
+            if (userId == null) {
+                // Fallback to your DB column if you're using service tokens
+                userId = tokensEntity.get().getServiceName();
+            }
 
-        // Optionally add request details
-        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            String email = asString(claims.get("email"));
 
-        // ✅ Tell Spring Security the user/service is authenticated
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            Object rolesClaim  = firstNonNull(
+                    claims.get("roles"),            // your custom
+                    claims.get("role"),
+                    claims.get("cognito:groups"),   // AWS Cognito groups
+                    claims.get("permissions")       // Auth0 often uses this
+            );
+            Object scopesClaim = firstNonNull(
+                    claims.get("scope"),            // space-separated
+                    claims.get("scp")               // array (Azure AD style)
+            );
+
+            String dbAccess = String.valueOf(tokensEntity.get().getAccessLevel()); // e.g., USER / PRO
+            List<String> dbRoles = (dbAccess == null || dbAccess.isBlank())
+                    ? List.of()
+                    : List.of(dbAccess);
+
+            Collection<GrantedAuthority> authorities = toAuthorities(rolesClaim, scopesClaim, dbRoles);
+            Collection<GrantedAuthority> rawScopes = toScopeList(scopesClaim).stream().map(SimpleGrantedAuthority::new).collect(Collectors.toSet());
+
+            // Also fold in DB access level if you want it to act like a role
+
+            AuthUser principal = new AuthUser(userId, email, authorities);
+
+            // Create the Authentication object
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(principal, null, authorities);
+
+            // Optionally add request details
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+            // ✅ Tell Spring Security the user/service is authenticated
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        } catch (JwtService.TokenInvalidException e) {
+            logger.debug("JWT invalid: {}", e.getMessage());
+            SecurityContextHolder.clearContext();
+        } catch (Exception e) {
+            logger.error("JWT filter error", e);
+            SecurityContextHolder.clearContext();
+        }
 
         filterChain.doFilter(request, response);
     }

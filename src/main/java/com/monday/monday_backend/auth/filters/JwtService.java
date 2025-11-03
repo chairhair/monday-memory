@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +96,23 @@ public class JwtService {
                 "token", tokensAvailable.get(0),
                 "requestedRole", requestedRole,
                 "tokensAvailable", tokensAvailable));
+    }
+
+    public Map<String, Object> verify(String token) {
+        var row = tokensRepository.findByToken(token)
+                .filter(t -> !t.isExpired() && !t.isRevoked())
+                .orElseThrow(() -> new TokenInvalidException("Invalid/expired token"));
+
+        // Fake a “claims” map from your DB row so the filter can stay generic
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", row.getServiceName());       // or user id if you store it
+        claims.put("roles", List.of(row.getAccessLevel())); // e.g., USER/PRO
+        return claims;
+    }
+
+    static final class TokenInvalidException extends RuntimeException {
+        public TokenInvalidException(String msg) { super(msg); }
+        public TokenInvalidException(String msg, Throwable c) { super(msg, c); }
     }
 
 }

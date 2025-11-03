@@ -33,3 +33,22 @@ commands:
 ```
 gradle build --refresh-dependencies -x test --no-build-cache
 ```
+
+
+### Security Notes
+When making a new authorization or configuration, make sure you keep configurations split. For example:
+
+**Scope** will be for external authentications that may be used within the application (Think OAuth2).
+**Role** is used explicitly for defined application authorities (Think of classic sprint roles)
+
+As such, when we're looking to authorize certain features, we need to use the following syntax.
+
+For Roles, use...
+```
+@PreAuthorize("hasRole('PRO_MONTHLY')")
+```
+
+For Scope, use...
+```
+@PreAuthorize("hasAuthority('SCOPE_LOGIN')")
+```
