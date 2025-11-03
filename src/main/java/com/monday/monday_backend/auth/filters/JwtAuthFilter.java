@@ -101,7 +101,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     : List.of(dbAccess);
 
             Collection<GrantedAuthority> authorities = toAuthorities(rolesClaim, scopesClaim, dbRoles);
-            Collection<GrantedAuthority> rawScopes = toScopeList(scopesClaim).stream().map(SimpleGrantedAuthority::new).collect(Collectors.toSet());
 
             // Also fold in DB access level if you want it to act like a role
 
