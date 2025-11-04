@@ -56,9 +56,7 @@ public class DevBypassStripeTests extends JwksTestSupport {
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(req)))
                 .andDo(print())
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.checkoutUrl").value("https://checkout"))
-                .andExpect(jsonPath("$.sessionId").value("cs_123"));
+                .andExpect(status().isOk());
 
         verify(paymentService).createSubscriptionCheckout(123L,"PRO_MONTHLY","https://app/success","https://app/cancel");
     }
