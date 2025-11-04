@@ -12,6 +12,7 @@ import java.time.Instant;
 
 @Getter
 @NoArgsConstructor
+@Table(name = "tokens_entity")
 @Entity
 public class TokensEntity {
     @Id

@@ -1,7 +1,6 @@
 package com.monday.monday_backend.service.DevBypassTests;
 
 import com.monday.monday_backend.service.JwksTestSupport;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -21,11 +20,11 @@ public class DevBypassTests extends JwksTestSupport {
     @Autowired
     MockMvc mvc;
 
-//    @Test
-//    void withoutHeaders_accessIsOpenButUnauthenticatedContext() throws Exception {
-//        mvc.perform(get("/v1/memories?userId=userA"))
-//                .andExpect(status().isOk());
-//    }
+    @Test
+    void withoutHeaders_accessIsOpenButUnauthenticatedContext() throws Exception {
+        mvc.perform(get("/v1/memories?userId=userA"))
+                .andExpect(status().isOk());
+    }
 
     /*@Test
     void withImpersonationHeaders_setsUserAndScopes() throws Exception {

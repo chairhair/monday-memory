@@ -45,7 +45,7 @@ public class UserService {
 
         if (existing != null) {
             Optional<UserEntity> potentialDuplicates = userRepository.findByEmailAndServiceName(dto.emailAddress(), dto.serviceName());
-            if (potentialDuplicates.isPresent() && potentialDuplicates.get().getUser_id() != existing.getUser_id()) {
+            if (potentialDuplicates.isPresent() && potentialDuplicates.get().getId() != existing.getId()) {
                 return UserResponseDTO.failedDTO(HttpStatus.CONFLICT.value(), "Duplicate email already found.");
             }
             if (!existing.getEmail().equals(dto.emailAddress())) {
@@ -66,7 +66,7 @@ public class UserService {
         newUser.setEmail(dto.emailAddress());
         newUser.setServiceName(dto.serviceName());
         newUser.setPassword(passwordEncoder.encode(dto.password()));
-        newUser.addRoles(rolesEntity);
+        newUser.addRole(rolesEntity);
         userRepository.save(newUser);
         return UserResponseDTO.successfulDTO(newUser.getEmail(), newUser.getServiceName(), Set.of(AccessLevel.USER), new HashSet<>());
     }
