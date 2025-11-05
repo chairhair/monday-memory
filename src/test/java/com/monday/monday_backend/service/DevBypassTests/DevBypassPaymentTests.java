@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = "security.dev-bypass.enabled=true")
 @ActiveProfiles({"test", "dev"})
 @AutoConfigureMockMvc(addFilters = true)
-public class DevBypassStripeTests extends JwksTestSupport {
+public class DevBypassPaymentTests extends JwksTestSupport {
 
     @Autowired
     MockMvc mvc;
