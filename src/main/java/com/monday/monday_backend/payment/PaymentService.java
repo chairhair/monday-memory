@@ -7,6 +7,7 @@ import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.PricePlanRepository;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
+import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class PaymentService implements PaymentProvider {
     private final PricePlanRepository pricePlanRepository;
 
     @Override
-    public StartCheckoutResponseDTO createSubscriptionCheckout(Long userId, String pricePlan, String successUrl, String cancelUrl) {
+    public StartCheckoutResponseDTO createSubscriptionCheckout(Long userId, String pricePlan, String successUrl, String cancelUrl) throws RuntimeException, StripeException {
 
         UserPlanEntity userPlan = null;
         if (userId != null) {
@@ -45,11 +46,7 @@ public class PaymentService implements PaymentProvider {
                         .setQuantity(1L)
                         .build())
                 .build();
-        try {
-            Session session = Session.create(params);
-            return new StartCheckoutResponseDTO(session.getUrl(), session.getId());
-        } catch (Exception e) {
-            throw new RuntimeException("Stripe checkout create failed", e);
-        }
+        Session session = Session.create(params);
+        return new StartCheckoutResponseDTO(session.getUrl(), session.getId());
     }
 }
