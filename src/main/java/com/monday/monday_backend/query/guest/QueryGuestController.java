@@ -1,7 +1,12 @@
 package com.monday.monday_backend.query.guest;
 
+import com.monday.monday_backend.memory.MemoryService;
+import com.monday.monday_backend.query.guest.dto.QueryGuestRequestDTO;
+import com.monday.monday_backend.query.guest.dto.QueryGuestResponseDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -21,4 +26,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/query/guest")
 public class QueryGuestController {
+
+    private final MemoryService memory;
+
+    /**
+     * Searches/reads a curated/public subset
+     */
+    @GetMapping("/public/q")
+    public QueryGuestResponseDTO searchQuery(QueryGuestRequestDTO query) {
+        return null;
+    }
+
+
+    /**
+     * Fetches a specific shared view
+     */
+    @GetMapping("/shares/{shareToken}")
+    public QueryGuestResponseDTO searchSharedQuery(@RequestParam("{shareToken}") String shareToken) {
+        return null;
+    }
 }

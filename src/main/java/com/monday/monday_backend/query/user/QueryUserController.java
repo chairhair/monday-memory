@@ -1,8 +1,11 @@
 package com.monday.monday_backend.query.user;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.memory.MemoryService;
 import com.monday.monday_backend.query.user.dto.QueryUserRequestDTO;
 import com.monday.monday_backend.query.user.dto.QueryUserResponseDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -23,6 +26,8 @@ import java.util.ArrayList;
 @RequestMapping("/query/user")
 public class QueryUserController {
 
+    private final MemoryService memory;
+
     /**
      * Grabs multiple memories based on prior context provided.
      *
@@ -35,7 +40,8 @@ public class QueryUserController {
      * @return - Our response in the form of what our user currently has.
      */
     @PostMapping("/q")
-    public QueryUserResponseDTO fetchFilteredMemorySet(@RequestBody QueryUserRequestDTO dto) {
+    public QueryUserResponseDTO fetchFilteredMemorySet(@AuthenticationPrincipal AuthUser authUser,
+                                                       @RequestBody QueryUserRequestDTO dto) {
         return null;
     }
 
@@ -49,7 +55,8 @@ public class QueryUserController {
      * @return - our memory id.
      */
     @GetMapping("/{memoryId}")
-    public QueryUserResponseDTO fetchMemory(@PathVariable Long memoryId) {
+    public QueryUserResponseDTO fetchMemory(@AuthenticationPrincipal AuthUser authUser,
+                                            @PathVariable Long memoryId) {
         return null;
     }
 

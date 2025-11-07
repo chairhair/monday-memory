@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 @Schema(description = "Request to group or summarize memory across multiple sessions")
-public record TopicMemoryRequestDTO(
+public record TopicMemorySearchRequestDTO(
         @Schema(description = "User ID requesting the grouped memory", example = "user-456")
         String userId,
 

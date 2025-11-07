@@ -1,8 +1,12 @@
 package com.monday.monday_backend.memory;
 
-import com.monday.monday_backend.memory.dto.TopicMemoryRequestDTO;
+import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.memory.dto.MemoryChunkDTO;
 import com.monday.monday_backend.memory.dto.TopicMemoryResponseDTO;
+import com.monday.monday_backend.memory.dto.TopicMemorySearchRequestDTO;
+import com.monday.monday_backend.memory.dto.TopicMemoryUpdateRequestDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -23,13 +27,47 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class TopicMemoryController {
 
+    private final MemoryService memory;
+
+    /**
+     * This will create a topic
+     */
+    @PostMapping
+    public TopicMemoryResponseDTO createTopic(@AuthenticationPrincipal AuthUser user, @RequestBody TopicMemoryResponseDTO req) {
+        return new TopicMemoryResponseDTO(0, null, null, 0, null);
+    }
+
     /**
      * This controller will return a list of collated text based on the tags provided
      */
-    @PostMapping
+    @PostMapping("/list")
     public TopicMemoryResponseDTO collateMemory(
-            @RequestBody TopicMemoryRequestDTO collateMemoryResponseDTO
+            @AuthenticationPrincipal AuthUser user,
+            @RequestBody TopicMemorySearchRequestDTO collateMemoryResponseDTO
     ) {
         return new TopicMemoryResponseDTO(0, null, null, 0, null);
+    }
+
+    @PutMapping("/{topicId}")
+    public TopicMemoryResponseDTO updateTopic(@PathVariable("topicId") String topicId, @RequestBody TopicMemoryUpdateRequestDTO update) {
+        return new TopicMemoryResponseDTO(0, null, null, 0, null);
+    }
+
+    @DeleteMapping("/{topicId}")
+    public TopicMemoryResponseDTO deleteTopic(@PathVariable("topicId") String topicId) {
+        return null;
+    }
+
+    @PutMapping("/{topicId}/memories/{id}")
+    public TopicMemoryResponseDTO updateMemoryUnderTopic(@PathVariable("topicId") String topicId,
+                                                         @PathVariable("id") String memoryId,
+                                                         @RequestBody MemoryChunkDTO memoryChunkDTO) {
+        return new TopicMemoryResponseDTO(0, null, null, 0, null);
+    }
+
+    @DeleteMapping("/{topicId}/memories/{id}")
+    public TopicMemoryResponseDTO deleteMemoryUnderTopic(@PathVariable("topicId") String topicId,
+                                               @PathVariable("id") String memoryId) {
+        return null;
     }
 }
