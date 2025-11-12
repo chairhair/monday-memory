@@ -1,13 +1,13 @@
 package com.monday.monday_backend.auth.filters;
 
-import com.monday.monday_backend.auth.dto.VerificationRequestDTO;
-import com.monday.monday_backend.auth.dto.VerificationResponseDTO;
-import com.monday.monday_backend.auth.roles.AccessLevel;
 import com.monday.monday_backend.auth.tokens.JwtUtil;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.tokens.TokensRepository;
 import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.monday_backend.auth.users.UserRepository;
+import com.monday.shared.auth.dto.VerificationRequestDTO;
+import com.monday.shared.auth.dto.VerificationResponseDTO;
+import com.monday.shared.auth.utils.AccessLevel;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 

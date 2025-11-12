@@ -2,13 +2,12 @@ package com.monday.monday_backend.query.user;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.memory.MemoryService;
-import com.monday.monday_backend.query.user.dto.QueryUserRequestDTO;
-import com.monday.monday_backend.query.user.dto.QueryUserResponseDTO;
+import com.monday.shared.query.user.dto.QueryUserRequestDTO;
+import com.monday.shared.query.user.dto.QueryUserResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 
 /**
  * "Hey, what can I give my user?" - This class

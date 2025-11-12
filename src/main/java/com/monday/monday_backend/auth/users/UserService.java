@@ -1,13 +1,13 @@
 package com.monday.monday_backend.auth.users;
 
-import com.monday.monday_backend.auth.dto.UserRequestDTO;
-import com.monday.monday_backend.auth.dto.UserResponseDTO;
-import com.monday.monday_backend.auth.dto.UserSearchRequestDTO;
-import com.monday.monday_backend.auth.roles.AccessLevel;
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.validation.ValidationUtils;
+import com.monday.shared.auth.dto.UserRequestDTO;
+import com.monday.shared.auth.dto.UserResponseDTO;
+import com.monday.shared.auth.dto.UserSearchRequestDTO;
+import com.monday.shared.auth.utils.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

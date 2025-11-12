@@ -1,8 +1,8 @@
 package com.monday.monday_backend.query.guest;
 
 import com.monday.monday_backend.memory.MemoryService;
-import com.monday.monday_backend.query.guest.dto.QueryGuestRequestDTO;
-import com.monday.monday_backend.query.guest.dto.QueryGuestResponseDTO;
+import com.monday.shared.query.guest.dto.QueryGuestRequestDTO;
+import com.monday.shared.query.guest.dto.QueryGuestResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

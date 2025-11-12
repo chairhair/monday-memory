@@ -1,11 +1,10 @@
 package com.monday.monday_backend.memory;
 
-import com.monday.monday_backend.memory.dto.SessionMemoryFilterRequestDTO;
-import com.monday.monday_backend.memory.dto.SessionMemoryRequestDTO;
-import com.monday.monday_backend.memory.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.dto.SessionMemoryRequestDTO;
+import com.monday.shared.memory.dto.SessionMemoryResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
+import com.monday.shared.memory.dto.SessionMemoryFilterRequestDTO;
 import java.util.List;
 
 /**

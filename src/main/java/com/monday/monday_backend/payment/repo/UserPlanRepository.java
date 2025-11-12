@@ -18,7 +18,7 @@ public interface UserPlanRepository extends JpaRepository<UserPlanEntity, Long> 
 
     Optional<UserPlanEntity> findByStripeCustomerId(String stripeCustomerId);
 
-    boolean existsByUserId(String userId);
+    boolean existsByUserId(Long userId);
 
     // Optional: fast path to flip tier without fetching the row
     @Modifying(clearAutomatically = true, flushAutomatically = true)

@@ -1,8 +1,8 @@
 package com.monday.monday_backend.service.JwtAuthTests;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.monday.monday_backend.memory.dto.SessionMemoryFilterRequestDTO;
 import com.monday.monday_backend.service.AbstractJwtResourceServerTest;
+import com.monday.shared.memory.dto.SessionMemoryFilterRequestDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -12,8 +12,6 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 

@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.roles;
 
+import com.monday.shared.auth.utils.AccessLevel;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

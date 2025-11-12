@@ -1,12 +1,11 @@
 package com.monday.monday_backend.auth.users;
 
-import com.monday.monday_backend.auth.dto.UserRequestDTO;
-import com.monday.monday_backend.auth.dto.UserResponseDTO;
-import com.monday.monday_backend.auth.dto.UserSearchRequestDTO;
+import com.monday.shared.auth.dto.UserRequestDTO;
+import com.monday.shared.auth.dto.UserResponseDTO;
+import com.monday.shared.auth.dto.UserSearchRequestDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**

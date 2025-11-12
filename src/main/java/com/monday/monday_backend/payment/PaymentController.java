@@ -2,8 +2,8 @@ package com.monday.monday_backend.payment;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.auth.utils.AuthHelper;
-import com.monday.monday_backend.payment.dto.StartCheckoutRequestDTO;
-import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
+import com.monday.shared.payment.dto.StartCheckoutRequestDTO;
+import com.monday.shared.payment.dto.StartCheckoutResponseDTO;
 import com.stripe.exception.StripeException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

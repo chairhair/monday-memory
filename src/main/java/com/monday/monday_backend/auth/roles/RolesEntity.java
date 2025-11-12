@@ -1,6 +1,7 @@
 package com.monday.monday_backend.auth.roles;
 
 import com.monday.monday_backend.auth.users.UserEntity;
+import com.monday.shared.auth.utils.AccessLevel;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

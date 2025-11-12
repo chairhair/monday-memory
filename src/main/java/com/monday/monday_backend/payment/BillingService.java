@@ -1,9 +1,6 @@
 package com.monday.monday_backend.payment;
 
 import com.monday.monday_backend.auth.users.UserRepository;
-import com.monday.monday_backend.payment.core.PaymentProvider;
-import com.monday.monday_backend.payment.dto.StartCheckoutRequestDTO;
-import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
 import com.monday.monday_backend.payment.entity.PaymentEvent;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;

@@ -1,6 +1,6 @@
 package com.monday.monday_backend.payment.core;
 
-import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
+import com.monday.shared.payment.dto.StartCheckoutResponseDTO;
 import com.stripe.exception.StripeException;
 
 public interface PaymentProvider {

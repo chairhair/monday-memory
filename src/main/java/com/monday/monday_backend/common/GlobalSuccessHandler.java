@@ -1,6 +1,5 @@
 package com.monday.monday_backend.common;
 
-import org.jspecify.annotations.Nullable;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -10,6 +9,8 @@ import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+
+import javax.annotation.Nullable;
 
 @ControllerAdvice
 public class GlobalSuccessHandler implements ResponseBodyAdvice<Object> {

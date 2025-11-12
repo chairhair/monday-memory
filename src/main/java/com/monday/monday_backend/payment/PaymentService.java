@@ -2,11 +2,11 @@ package com.monday.monday_backend.payment;
 
 import com.monday.monday_backend.payment.config.StripeConfiguration;
 import com.monday.monday_backend.payment.core.PaymentProvider;
-import com.monday.monday_backend.payment.dto.StartCheckoutResponseDTO;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.PricePlanRepository;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
+import com.monday.shared.payment.dto.StartCheckoutResponseDTO;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;

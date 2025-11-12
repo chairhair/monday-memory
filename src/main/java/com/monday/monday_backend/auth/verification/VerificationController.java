@@ -1,9 +1,8 @@
 package com.monday.monday_backend.auth.verification;
 
-import com.monday.monday_backend.auth.dto.VerificationRequestDTO;
-import com.monday.monday_backend.auth.dto.VerificationResponseDTO;
 import com.monday.monday_backend.auth.filters.JwtService;
-import com.monday.monday_backend.auth.tokens.JwtUtil;
+import com.monday.shared.auth.dto.VerificationRequestDTO;
+import com.monday.shared.auth.dto.VerificationResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
