@@ -1,7 +1,7 @@
 package com.monday.monday_backend.query.user;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
-import com.monday.monday_backend.memory.MemoryService;
+import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.shared.query.user.dto.QueryUserRequestDTO;
 import com.monday.shared.query.user.dto.QueryUserResponseDTO;
 import lombok.RequiredArgsConstructor;

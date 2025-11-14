@@ -1,10 +1,11 @@
 package com.monday.monday_backend.memory;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.shared.memory.dto.MemoryChunkDTO;
-import com.monday.shared.memory.dto.TopicMemoryResponseDTO;
-import com.monday.shared.memory.dto.TopicMemorySearchRequestDTO;
-import com.monday.shared.memory.dto.TopicMemoryUpdateRequestDTO;
+import com.monday.shared.memory.topic.dto.TopicMemoryResponseDTO;
+import com.monday.shared.memory.topic.dto.TopicMemorySearchRequestDTO;
+import com.monday.shared.memory.topic.dto.TopicMemoryUpdateRequestDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

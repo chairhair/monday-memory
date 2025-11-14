@@ -1,6 +1,6 @@
 package com.monday.monday_backend.query.guest;
 
-import com.monday.monday_backend.memory.MemoryService;
+import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.shared.query.guest.dto.QueryGuestRequestDTO;
 import com.monday.shared.query.guest.dto.QueryGuestResponseDTO;
 import lombok.RequiredArgsConstructor;

@@ -1,10 +1,12 @@
 package com.monday.monday_backend.memory;
 
-import com.monday.shared.memory.dto.SessionMemoryRequestDTO;
-import com.monday.shared.memory.dto.SessionMemoryResponseDTO;
+import com.monday.monday_backend.memory.service.MemoryService;
+import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
+import com.monday.shared.memory.session.dto.SessionMemoryRequestDTO;
+import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import com.monday.shared.memory.dto.SessionMemoryFilterRequestDTO;
+import com.monday.shared.memory.session.dto.SessionMemoryFilterRequestDTO;
 import java.util.List;
 
 /**
@@ -27,9 +29,18 @@ public class SessionMemoryController {
 
     private final MemoryService memoryService;
 
-    @PostMapping
-    public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO){
+    @PostMapping("/memory")
+    public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
         return new SessionMemoryResponseDTO(200, null, null, null, null, null);
+    }
+
+    @PostMapping
+    public SessionMemoryResponseDTO createSession(@RequestBody CreateSessionRequestDTO createRequestDTO) {
+        // When starting the createSession, we must first check if we have a topic.
+        if (createRequestDTO.isGuest()) {
+            return this.memoryService.upsertToSession(createRequestDTO);
+        }
+        return this.memoryService.upsertToTopic(createRequestDTO);
     }
 
     @PostMapping("/list")
