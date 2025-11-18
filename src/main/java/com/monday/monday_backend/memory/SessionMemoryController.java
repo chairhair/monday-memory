@@ -1,10 +1,13 @@
 package com.monday.monday_backend.memory;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.monday.shared.memory.session.dto.SessionMemoryFilterRequestDTO;
 import java.util.List;
@@ -31,22 +34,45 @@ public class SessionMemoryController {
 
     @PostMapping("/memory")
     public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
     }
 
     @PostMapping
-    public SessionMemoryResponseDTO createSession(@RequestBody CreateSessionRequestDTO createRequestDTO) {
+    public SessionMemoryResponseDTO createSession(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestBody CreateSessionRequestDTO createRequestDTO) {
         // When starting the createSession, we must first check if we have a topic.
-        if (createRequestDTO.isGuest()) {
-            return this.memoryService.upsertToSession(createRequestDTO);
+        PrincipalType principalType;
+        String principalId;
+
+        if (authUser != null) {
+            principalType = PrincipalType.USER;
+            principalId = authUser.id(); // or whatever your ID type is
+        } else {
+            principalType = PrincipalType.GUEST;
+            principalId = createRequestDTO.userId(); // or guestKey, depending on how you've modeled it
         }
-        return this.memoryService.upsertToTopic(createRequestDTO);
+
+        CreateSessionRequestDTO normalized = new CreateSessionRequestDTO(
+                principalType,
+                principalId,
+                createRequestDTO.guestKey(),
+                createRequestDTO.topicName(),
+                createRequestDTO.source(),
+                createRequestDTO.sourceConversationKey()
+        );
+
+        if (principalType == PrincipalType.GUEST) {
+            return memoryService.upsertToSession(normalized);
+        } else {
+            return memoryService.upsertToTopic(normalized);
+        }
     }
 
     @PostMapping("/list")
     public SessionMemoryResponseDTO getMemoryList(
             @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
     }
 
     @DeleteMapping
