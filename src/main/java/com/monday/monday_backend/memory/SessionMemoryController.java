@@ -7,9 +7,12 @@ import com.monday.shared.memory.session.dto.SessionMemoryRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.monday.shared.memory.session.dto.SessionMemoryFilterRequestDTO;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
 
 /**
@@ -50,22 +53,17 @@ public class SessionMemoryController {
             principalId = authUser.id(); // or whatever your ID type is
         } else {
             principalType = PrincipalType.GUEST;
-            principalId = createRequestDTO.userId(); // or guestKey, depending on how you've modeled it
+            principalId = createRequestDTO.guestKey(); // or guestKey, depending on how you've modeled it
         }
 
-        CreateSessionRequestDTO normalized = new CreateSessionRequestDTO(
-                principalType,
-                principalId,
-                createRequestDTO.guestKey(),
-                createRequestDTO.topicName(),
-                createRequestDTO.source(),
-                createRequestDTO.sourceConversationKey()
-        );
+        if (principalId == null && principalType == PrincipalType.USER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principalId must be provided!");
+        }
 
         if (principalType == PrincipalType.GUEST) {
-            return memoryService.upsertToSession(normalized);
+            return memoryService.upsertToSession(principalType, principalId, createRequestDTO);
         } else {
-            return memoryService.upsertToTopic(normalized);
+            return memoryService.upsertToTopic(createRequestDTO);
         }
     }
 

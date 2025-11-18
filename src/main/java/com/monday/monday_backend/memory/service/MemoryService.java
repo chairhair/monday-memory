@@ -3,6 +3,7 @@ package com.monday.monday_backend.memory.service;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,7 +48,7 @@ public class MemoryService {
      * 	- EXPLICITLY FOR USERS!
      */
     @Transactional
-    public SessionMemoryResponseDTO upsertToTopic(CreateSessionRequestDTO createRequestDTO) {
+    public SessionMemoryResponseDTO upsertToTopic(PrincipalType principalType, String id, CreateSessionRequestDTO createRequestDTO) {
         return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
     }
 
@@ -57,13 +58,13 @@ public class MemoryService {
      * - EXPLICITLY FOR GUESTS
      */
     @Transactional
-    public SessionMemoryResponseDTO upsertToSession(CreateSessionRequestDTO createRequestDTO) {
-        String principalId = switch (createRequestDTO.principalType()) {
+    public SessionMemoryResponseDTO upsertToSession(PrincipalType principalType, String id, CreateSessionRequestDTO createRequestDTO) {
+        String principalId = switch (principalType) {
             case USER -> {
-                if (createRequestDTO.userId() == null) {
+                if (id == null) {
                     throw new IllegalArgumentException("userId must be provided for USER principalType");
                 }
-                yield createRequestDTO.userId();
+                yield id;
             }
             case GUEST -> {
                 if (createRequestDTO.guestKey() == null || createRequestDTO.guestKey().isBlank()) {
@@ -73,7 +74,7 @@ public class MemoryService {
             }
         };
 
-        return sessionService.findOrCreateSessionMemory(createRequestDTO, principalId);
+        return sessionService.findOrCreateSessionMemory(principalType, principalId, createRequestDTO);
     }
 
     /**
