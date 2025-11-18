@@ -63,7 +63,7 @@ public class SessionMemoryController {
         if (principalType == PrincipalType.GUEST) {
             return memoryService.upsertToSession(principalType, principalId, createRequestDTO);
         } else {
-            return memoryService.upsertToTopic(createRequestDTO);
+            return memoryService.upsertToTopic(principalType, principalId, createRequestDTO);
         }
     }
 
