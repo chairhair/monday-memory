@@ -1,11 +1,12 @@
 package com.monday.monday_backend.memory.service;
 
+import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
-import com.monday.shared.memory.session.utils.SessionSource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 /**
  * The purpose of this class is to ensure that when we go to perform CRUD operations on our memory, that we:
@@ -26,6 +27,7 @@ public class MemoryService {
 
     private final SessionService sessionService;
     private final TopicService topicService;
+    private final GuestService guestService;
 
     /**
      * - If Username present, calls TopicService. TopicService will most relevant information based on query and will compare it to session info later.
@@ -46,7 +48,7 @@ public class MemoryService {
      */
     @Transactional
     public SessionMemoryResponseDTO upsertToTopic(CreateSessionRequestDTO createRequestDTO) {
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
     }
 
     /**
@@ -56,8 +58,22 @@ public class MemoryService {
      */
     @Transactional
     public SessionMemoryResponseDTO upsertToSession(CreateSessionRequestDTO createRequestDTO) {
+        String principalId = switch (createRequestDTO.principalType()) {
+            case USER -> {
+                if (createRequestDTO.userId() == null) {
+                    throw new IllegalArgumentException("userId must be provided for USER principalType");
+                }
+                yield createRequestDTO.userId();
+            }
+            case GUEST -> {
+                if (createRequestDTO.guestKey() == null || createRequestDTO.guestKey().isBlank()) {
+                    throw new IllegalArgumentException("guestKey must be provided for GUEST principalType");
+                }
+                yield guestService.resolveOrCreateGuestId(createRequestDTO.guestKey(), createRequestDTO.sourceToGuestSource());
+            }
+        };
 
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null);
+        return sessionService.findOrCreateSessionMemory(createRequestDTO, principalId);
     }
 
     /**

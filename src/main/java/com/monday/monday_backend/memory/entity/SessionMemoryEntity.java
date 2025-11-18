@@ -1,38 +1,66 @@
 package com.monday.monday_backend.memory.entity;
 
+import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.utils.SessionSource;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.UUID;
 
 @Entity
 @Table(name = "session_memory",
         indexes = {
-                @Index(name="idx_session_subject_service", columnList = "subjectId,service,sessionId"),
+                @Index(name="idx_session_identity", columnList = "principalId,sessionId,source,sourceConversation"),
                 @Index(name="idx_session_last_occurred", columnList = "lastOccurredAt")
         })
-@Getter @Setter @NoArgsConstructor
+@Getter @NoArgsConstructor
 public class SessionMemoryEntity {
 
-    @Id @Column(length = 50)               // ULID/string
-    private String sessionId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid", length=50)
+    private UUID sessionId;
 
+    @Setter
     @Column(nullable = false, length = 64)
-    private String service;                // e.g. "chat", "note", "etl"
+    private String source;                // e.g. "Discord", "Notion", etc.
 
+    @Setter
+    @Column(nullable = false, length = 128)
+    private String sourceConversation;    // e.g. The chat number associated with it; thread id, etc.
+
+    @Setter
     @Column(nullable = false, length = 64)
-    private String subjectId;
+    private String principalId;
 
+    @Setter
     @Column(nullable = false)
     private Instant createdAt;
 
+    @Setter
     @Column(nullable = false)
     private Instant updatedAt;
 
+    @Setter
     @Column(nullable = false)
     private int chunkCount;
 
+    @Setter
+    @Column
+    private String idempotencyKey;
+
+    @Setter
     private Instant lastOccurredAt;
 
+    @Setter
+    private Long topicId;
+
+    @Setter
     @Version
     private long version;                  // optimistic updates on counters
+
+    public SessionMemoryResponseDTO toDTO(int statusCode, String message) {
+        return new SessionMemoryResponseDTO(statusCode, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
+    }
 }
