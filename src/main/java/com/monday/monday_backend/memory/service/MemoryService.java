@@ -3,6 +3,7 @@ package com.monday.monday_backend.memory.service;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -75,6 +76,13 @@ public class MemoryService {
         };
 
         return sessionService.findOrCreateSessionMemory(principalType, principalId, createRequestDTO);
+    }
+
+    /**
+     * Update known session state
+     */
+    public SessionMemoryResponseDTO stopSessionState(PrincipalType principalType, String principalId, UpdateSessionRequestDTO updateRequestDTO) {
+        return sessionService.stopSessionMemory(principalType, principalId, updateRequestDTO);
     }
 
     /**

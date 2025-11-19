@@ -1,16 +1,14 @@
 package com.monday.monday_backend.memory;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.auth.users.helper.PrincipalEntry;
 import com.monday.monday_backend.memory.service.MemoryService;
-import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
-import com.monday.shared.memory.session.dto.SessionMemoryRequestDTO;
-import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.dto.*;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import com.monday.shared.memory.session.dto.SessionMemoryFilterRequestDTO;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -37,7 +35,7 @@ public class SessionMemoryController {
 
     @PostMapping("/memory")
     public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null);
     }
 
     @PostMapping
@@ -45,16 +43,9 @@ public class SessionMemoryController {
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody CreateSessionRequestDTO createRequestDTO) {
         // When starting the createSession, we must first check if we have a topic.
-        PrincipalType principalType;
-        String principalId;
-
-        if (authUser != null) {
-            principalType = PrincipalType.USER;
-            principalId = authUser.id(); // or whatever your ID type is
-        } else {
-            principalType = PrincipalType.GUEST;
-            principalId = createRequestDTO.guestKey(); // or guestKey, depending on how you've modeled it
-        }
+        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, createRequestDTO);
+        PrincipalType principalType = principalEntry.principalType();
+        String principalId = principalEntry.principalId();
 
         if (principalId == null && principalType == PrincipalType.USER) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principalId must be provided!");
@@ -67,10 +58,21 @@ public class SessionMemoryController {
         }
     }
 
+    @PutMapping("/stop-session")
+    public SessionMemoryResponseDTO stopSession(@AuthenticationPrincipal AuthUser authUser,
+                                                  @RequestBody UpdateSessionRequestDTO updateRequestDTO) {
+        // When starting the updateSession, we must first check if we have a topic.
+        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, updateRequestDTO);
+        PrincipalType principalType = principalEntry.principalType();
+        String principalId = principalEntry.principalId();
+
+        return memoryService.stopSessionState(principalType, principalId, updateRequestDTO);
+    }
+
     @PostMapping("/list")
     public SessionMemoryResponseDTO getMemoryList(
             @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null);
     }
 
     @DeleteMapping

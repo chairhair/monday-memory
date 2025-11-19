@@ -2,8 +2,11 @@ package com.monday.monday_backend.memory.entity;
 
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.SessionSource;
+import com.monday.shared.memory.session.utils.SessionState;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.http.HttpStatus;
+
 import java.time.Instant;
 import java.util.Collections;
 import java.util.UUID;
@@ -23,8 +26,9 @@ public class SessionMemoryEntity {
     private UUID sessionId;
 
     @Setter
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 64)
-    private String source;                // e.g. "Discord", "Notion", etc.
+    private SessionSource source;                // e.g. "Discord", "Notion", etc.
 
     @Setter
     @Column(nullable = false, length = 128)
@@ -35,12 +39,21 @@ public class SessionMemoryEntity {
     private String principalId;
 
     @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private SessionState sessionState;
+
+    @Setter
     @Column(nullable = false)
     private Instant createdAt;
 
     @Setter
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @Setter
+    @Column
+    private Instant endedAt;
 
     @Setter
     @Column(nullable = false)
@@ -61,6 +74,10 @@ public class SessionMemoryEntity {
     private long version;                  // optimistic updates on counters
 
     public SessionMemoryResponseDTO toDTO(int statusCode, String message) {
+        return new SessionMemoryResponseDTO(HttpStatus.valueOf(statusCode), message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
+    }
+
+    public SessionMemoryResponseDTO toDTO(HttpStatus statusCode, String message) {
         return new SessionMemoryResponseDTO(statusCode, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
     }
 }
