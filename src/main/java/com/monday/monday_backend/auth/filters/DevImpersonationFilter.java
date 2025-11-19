@@ -33,7 +33,7 @@ final public class DevImpersonationFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
 
         var user = req.getHeader("X-Dev-User");
-        if (enabled) {
+        if (!enabled) {
             if (user != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 var node = new ObjectMapper().readTree(user);
                 String id = node.path("id").asText(null);

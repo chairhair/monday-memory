@@ -7,7 +7,6 @@ import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
-import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -15,12 +14,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 
-import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -54,17 +54,17 @@ public class DevBypassCreateSessionTests extends JwksTestSupport {
                 );
 
         when(memoryService.upsertToSession(
-                org.mockito.Mockito.eq(PrincipalType.GUEST),
-                org.mockito.Mockito.eq("bill"),
-                org.mockito.Mockito.any(CreateSessionRequestDTO.class))
+                eq(PrincipalType.GUEST),
+                eq("guest-key-123"),
+                any(CreateSessionRequestDTO.class))
         ).thenReturn(
                 new SessionMemoryResponseDTO(
-                        HttpStatus.SC_OK,
+                        HttpStatus.OK,
                         "Saved Session Memory Successfully",
                         Collections.singletonList("1"),
                         null,
                         0,
-                        "bill",
+                        "guest-key-123",
                         null
                 )
         );
@@ -99,41 +99,42 @@ public class DevBypassCreateSessionTests extends JwksTestSupport {
     }
 
 
-//    @Test
-//    void withoutHeaders_createsSession_usingGuestPrincipalOnReturn() throws Exception {
-//        CreateSessionRequestDTO createSessionRequestDTO = new CreateSessionRequestDTO(null, null, SessionSource.DISCORD, "1");
-//        when(memoryService.upsertToSession(
-//                org.mockito.Mockito.eq(PrincipalType.GUEST),
-//                org.mockito.Mockito.eq("bill"),
-//                org.mockito.Mockito.any(CreateSessionRequestDTO.class))
-//        ).thenReturn(
-//                new SessionMemoryResponseDTO(
-//                        HttpStatus.SC_OK,
-//                        "Saved Session Memory Successfully",
-//                        Collections.singletonList("1"),
-//                        null,
-//                        0,
-//                        "bill",
-//                        null
-//                )
-//        );
-//
-//
-//        String responseJson = mvc.perform(post("/v1/memory/session")
-//                        .contentType("application/json")
-//                        .content(mapper.writeValueAsString(createSessionRequestDTO)))
-//                .andExpect(status().isOk())
-//                .andReturn()
-//                .getResponse()
-//                .getContentAsString();
-//
-//
-//        SessionMemoryResponseDTO response =
-//                mapper.readValue(responseJson, SessionMemoryResponseDTO.class);
-//
-//        Assertions.assertEquals(HttpStatus.SC_OK, response.statusCode());
-//        Assertions.assertEquals("Saved Session Memory Successfully", response.message());
-//
-//    }
+    @Test
+    void withoutHeaders_createsSession_usingGuestPrincipalOnReturn() throws Exception {
+        // request contains guestKey
+        CreateSessionRequestDTO createSessionRequestDTO =
+                new CreateSessionRequestDTO("guest-key-123", null, SessionSource.DISCORD, "1");
+
+        when(memoryService.upsertToSession(
+                eq(PrincipalType.GUEST),
+                eq("guest-key-123"),
+                any(CreateSessionRequestDTO.class))
+        ).thenReturn(
+                new SessionMemoryResponseDTO(
+                        HttpStatus.OK,
+                        "Saved Session Memory Successfully",
+                        Collections.singletonList("1"),
+                        null,
+                        0,
+                        "guest-key-123",
+                        null
+                )
+        );
+
+        String responseJson = mvc.perform(post("/v1/memory/session")
+                        .contentType("application/json")
+                        .content(mapper.writeValueAsString(createSessionRequestDTO)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        SessionMemoryResponseDTO response =
+                mapper.readValue(responseJson, SessionMemoryResponseDTO.class);
+
+        Assertions.assertEquals(HttpStatus.OK, response.statusCode());
+        Assertions.assertEquals("Saved Session Memory Successfully", response.message());
+    }
+
 
 }

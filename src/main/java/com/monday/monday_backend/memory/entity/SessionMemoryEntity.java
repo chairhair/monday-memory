@@ -1,6 +1,7 @@
 package com.monday.monday_backend.memory.entity;
 
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
 import jakarta.persistence.*;
@@ -33,6 +34,11 @@ public class SessionMemoryEntity {
     @Setter
     @Column(nullable = false, length = 128)
     private String sourceConversation;    // e.g. The chat number associated with it; thread id, etc.
+
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private PrincipalType principalType;
 
     @Setter
     @Column(nullable = false, length = 64)

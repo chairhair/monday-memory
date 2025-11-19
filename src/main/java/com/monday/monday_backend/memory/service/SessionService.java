@@ -43,6 +43,7 @@ public class SessionService {
         }
         SessionMemoryEntity entity = new SessionMemoryEntity();
         entity.setPrincipalId(principalId);
+        entity.setPrincipalType(principalType);
         entity.setSource(request.source());
         entity.setSessionState(SessionState.ACTIVE);
         entity.setSourceConversation(request.sourceConversationKey());

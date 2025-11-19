@@ -6,6 +6,7 @@ import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,7 @@ public class MemoryService {
      */
     @Transactional
     public SessionMemoryResponseDTO upsertToTopic(PrincipalType principalType, String id, CreateSessionRequestDTO createRequestDTO) {
-        return new SessionMemoryResponseDTO(200, null, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null);
     }
 
     /**

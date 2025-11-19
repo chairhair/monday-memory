@@ -1,5 +1,6 @@
 package com.monday.monday_backend.common;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -22,9 +23,6 @@ public class GlobalSuccessHandler implements ResponseBodyAdvice<Object> {
 
     @Override
     public @Nullable Object beforeBodyWrite(@Nullable Object body, MethodParameter returnType, MediaType selectedContentType, Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request, ServerHttpResponse response) {
-        if (body instanceof ProblemDetail) {
-            return body;
-        }
-        return ResponseEntity.ok(body);
+        return body;
     }
 }
