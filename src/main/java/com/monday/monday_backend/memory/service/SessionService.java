@@ -72,11 +72,22 @@ public class SessionService {
                         "Could not identify the session"
                 ));
 
+        if (!currentSession.getPrincipalType().equals(principalType)
+                || !currentSession.getPrincipalId().equals(principalId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Principal cannot stop a session they do not own"
+            );
+        }
+
         SessionState state = currentSession.getSessionState();
 
         if (state == SessionState.STOPPED) {
             // idempotent behavior
-            return currentSession.toDTO(HttpStatus.OK, "Session already stopped");
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Session already stopped"
+            );
         }
 
         if (state != SessionState.ACTIVE) {

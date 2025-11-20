@@ -134,22 +134,18 @@ class StopSessionTests {
         UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
 
         // when
-        SessionMemoryResponseDTO response = sessionService.stopSessionMemory(
+        Executable exec = () -> sessionService.stopSessionMemory(
                 PrincipalType.GUEST,
                 "guest-key-123",
                 dto
         );
 
         // then
-        // Idempotent STOP: should *not* call save again in many designs.
-        // If your implementation *does* save, loosen this accordingly.
-        verify(sessionMemoryRepository, never()).save(any(SessionMemoryEntity.class));
+        ResponseStatusException ex = Assertions.assertThrows(
+                ResponseStatusException.class,
+                exec
+        );
 
-        Assertions.assertEquals(SessionState.STOPPED, stopped.getSessionState());
-        Assertions.assertEquals(HttpStatus.OK, response.statusCode());
-        // Optional: keep endedAt / updatedAt untouched on idempotent call
-        Assertions.assertEquals(originalEndedAt, stopped.getEndedAt(),
-                "endedAt should not change on idempotent STOP");
     }
 
     @Test
