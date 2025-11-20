@@ -1,4 +1,4 @@
-package com.monday.monday_backend.service.DevBypassTests;
+package com.monday.monday_backend.memory.entity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monday.monday_backend.memory.service.MemoryService;
@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
-public class DevBypassCreateSessionTests extends JwksTestSupport {
+public class CreateSessionTests extends JwksTestSupport {
 
     @Autowired
     MockMvc mvc;

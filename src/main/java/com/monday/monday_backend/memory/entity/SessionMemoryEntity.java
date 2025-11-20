@@ -16,12 +16,17 @@ import java.util.UUID;
 @Table(name = "session_memory",
         indexes = {
                 @Index(name="idx_session_identity", columnList = "principalId,sessionId,source,sourceConversation"),
-                @Index(name="idx_session_last_occurred", columnList = "lastOccurredAt")
+                @Index(name="idx_session_last_occurred", columnList = "lastOccurredAt"),
+                @Index(
+                        name = "idx_session_idempotency",
+                        columnList = "principalId,source,sourceConversation,idempotencyKey,sessionState"
+                )
         })
 @Getter @NoArgsConstructor
 public class SessionMemoryEntity {
 
     @Id
+    @Setter(AccessLevel.PACKAGE)
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid", length=50)
     private UUID sessionId;

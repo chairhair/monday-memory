@@ -1,11 +1,11 @@
-package com.monday.monday_backend.service.DevBypassTests;
+package com.monday.monday_backend.memory.entity;
 
-import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.service.SessionService;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
@@ -13,6 +13,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
@@ -21,13 +22,14 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
-class DevBypassStopSessionTests {
+class StopSessionTests {
 
     @Mock
     private SessionMemoryRepository sessionMemoryRepository;
@@ -36,14 +38,21 @@ class DevBypassStopSessionTests {
     private SessionService sessionService;
 
     // Helper to build an entity; adjust to match your actual constructor/setters
-    private SessionMemoryEntity buildSession(String sessionId, SessionState state,
+    private SessionMemoryEntity buildSession(SessionState state,
                                              Instant lastOccurredAt, Instant endedAt) {
         SessionMemoryEntity entity = new SessionMemoryEntity();
         // If you don't have setters, replace with builder / constructor you *do* have
+        entity.setSource(SessionSource.DISCORD);
+        entity.setSourceConversation("hawk-tuah-man");
+        entity.setPrincipalType(PrincipalType.GUEST);
+        entity.setPrincipalId("guest-key-123");
+        entity.setChunkCount(0);
         entity.setSessionState(state);
         entity.setLastOccurredAt(lastOccurredAt);
         entity.setEndedAt(endedAt);
-        entity.setUpdatedAt(Instant.now().minusSeconds(3600)); // initial value
+        entity.setCreatedAt(Instant.now().minusSeconds(7200));
+        entity.setUpdatedAt(Instant.now().minusSeconds(3600));
+        entity.setIdempotencyKey("test-idemp-key"); // initial value
         return entity;
     }
 
@@ -55,15 +64,20 @@ class DevBypassStopSessionTests {
     @Test
     void stopSession_activeSession_becomesStopped_andPersists() {
         // given
-        String sessionId = "session-123";
         SessionMemoryEntity active = buildSession(
-                sessionId,
                 SessionState.ACTIVE,
                 Instant.now().minusSeconds(300),
                 null
         );
+        UUID generatedId = UUID.randomUUID();
+        String sessionId = generatedId.toString();
+
+        active.setSessionId(generatedId);
+
 
         when(sessionMemoryRepository.findById(sessionId))
+                .thenReturn(Optional.of(active));
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
                 .thenReturn(Optional.of(active));
         when(sessionMemoryRepository.save(any(SessionMemoryEntity.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -90,24 +104,31 @@ class DevBypassStopSessionTests {
 
         // If your toDTO() sets these fields, assert them too
         Assertions.assertEquals(HttpStatus.OK, response.statusCode());
+
+        sessionMemoryRepository.delete(active);
     }
 
     @Test
     void stopSession_alreadyStopped_isIdempotent_andDoesNotResave() {
         // given
-        String sessionId = "session-456";
+        UUID generatedId = UUID.randomUUID();
+        String sessionId = generatedId.toString();
+
         Instant originalEndedAt = Instant.now().minusSeconds(600);
         Instant originalUpdatedAt = Instant.now().minusSeconds(600);
 
         SessionMemoryEntity stopped = buildSession(
-                sessionId,
                 SessionState.STOPPED,
                 Instant.now().minusSeconds(900),
                 originalEndedAt
         );
+        stopped.setSessionId(generatedId);
         stopped.setUpdatedAt(originalUpdatedAt);
 
         when(sessionMemoryRepository.findById(sessionId))
+                .thenReturn(Optional.of(stopped));
+
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
                 .thenReturn(Optional.of(stopped));
 
         UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
@@ -134,8 +155,13 @@ class DevBypassStopSessionTests {
     @Test
     void stopSession_nonExistent_throwsNotFound() {
         // given
-        String sessionId = "missing-session";
+        UUID generatedId = UUID.randomUUID();
+        String sessionId = generatedId.toString();
+
         when(sessionMemoryRepository.findById(sessionId))
+                .thenReturn(Optional.empty());
+
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
                 .thenReturn(Optional.empty());
 
         UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
@@ -158,15 +184,20 @@ class DevBypassStopSessionTests {
     @Test
     void stopSession_invalidState_throwsConflict() {
         // given
-        String sessionId = "session-expired";
+        UUID generatedId = UUID.randomUUID();
+        String sessionId = generatedId.toString();
+
         SessionMemoryEntity expired = buildSession(
-                sessionId,
                 SessionState.EXPIRED,
                 Instant.now().minusSeconds(3600),
                 Instant.now().minusSeconds(1800)
         );
+        expired.setSessionId(generatedId);
 
         when(sessionMemoryRepository.findById(sessionId))
+                .thenReturn(Optional.of(expired));
+
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
                 .thenReturn(Optional.of(expired));
 
         UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
