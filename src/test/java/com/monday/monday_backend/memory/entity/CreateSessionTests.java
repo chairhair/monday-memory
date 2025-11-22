@@ -7,6 +7,7 @@ import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
+import com.monday.shared.recording.RecordingScope;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -50,7 +51,8 @@ public class CreateSessionTests extends JwksTestSupport {
                         "guest-key-123",       // guestKey from client (browser/Discord)
                         null,                  // topicName (can be null for now)
                         SessionSource.DISCORD,
-                        "1"                    // sourceConversationKey
+                        "1",                    // sourceConversationKey
+                        RecordingScope.PRIVATE
                 );
 
         when(memoryService.upsertToSession(
@@ -60,6 +62,7 @@ public class CreateSessionTests extends JwksTestSupport {
         ).thenReturn(
                 new SessionMemoryResponseDTO(
                         HttpStatus.OK,
+                        RecordingScope.PRIVATE,
                         "Saved Session Memory Successfully",
                         Collections.singletonList("1"),
                         null,
@@ -103,7 +106,7 @@ public class CreateSessionTests extends JwksTestSupport {
     void withoutHeaders_createsSession_usingGuestPrincipalOnReturn() throws Exception {
         // request contains guestKey
         CreateSessionRequestDTO createSessionRequestDTO =
-                new CreateSessionRequestDTO("guest-key-123", null, SessionSource.DISCORD, "1");
+                new CreateSessionRequestDTO("guest-key-123", null, SessionSource.DISCORD, "1", RecordingScope.PRIVATE);
 
         when(memoryService.upsertToSession(
                 eq(PrincipalType.GUEST),
@@ -112,6 +115,7 @@ public class CreateSessionTests extends JwksTestSupport {
         ).thenReturn(
                 new SessionMemoryResponseDTO(
                         HttpStatus.OK,
+                        RecordingScope.PRIVATE,
                         "Saved Session Memory Successfully",
                         Collections.singletonList("1"),
                         null,

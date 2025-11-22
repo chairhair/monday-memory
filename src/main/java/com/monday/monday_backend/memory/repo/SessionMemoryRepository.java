@@ -24,4 +24,7 @@ public interface SessionMemoryRepository extends JpaRepository<SessionMemoryEnti
             String idempotencyKey,
             SessionState sessionState
     );
+
+    // Allows us to find by the "guest key"
+    Optional<SessionMemoryEntity> findBySourceConversation(String sourceConversation);
 }

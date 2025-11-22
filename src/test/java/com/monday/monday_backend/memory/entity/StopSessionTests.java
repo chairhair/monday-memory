@@ -7,6 +7,7 @@ import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
+import com.monday.shared.recording.RecordingScope;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
@@ -46,6 +47,7 @@ class StopSessionTests {
         entity.setSourceConversation("hawk-tuah-man");
         entity.setPrincipalType(PrincipalType.GUEST);
         entity.setPrincipalId("guest-key-123");
+        entity.setScope(RecordingScope.PRIVATE);
         entity.setChunkCount(0);
         entity.setSessionState(state);
         entity.setLastOccurredAt(lastOccurredAt);

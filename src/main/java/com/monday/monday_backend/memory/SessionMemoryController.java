@@ -3,6 +3,7 @@ package com.monday.monday_backend.memory;
 import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.auth.users.helper.PrincipalEntry;
 import com.monday.monday_backend.memory.service.MemoryService;
+import com.monday.monday_backend.memory.service.SessionService;
 import com.monday.shared.memory.session.dto.*;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.util.List;
 public class SessionMemoryController {
 
     private final MemoryService memoryService;
+    private final SessionService sessionService;    // Incorporated for quick Entity retrievals
 
     @PostMapping("/memory")
     public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
@@ -78,5 +80,14 @@ public class SessionMemoryController {
     @DeleteMapping
     public boolean deleteMemory(@RequestParam List<String> sessionIds) {
         return true;
+    }
+
+    /**
+     * Get by source conversation (used for if we don't have a good way to grab the information via principalId)
+     * @return
+     */
+    @GetMapping("/source-conversation/{key}")
+    public SessionMemoryResponseDTO getSessionBySourceConversation(@PathVariable("key") String key) {
+        return sessionService.findBySourceConversation(key);
     }
 }

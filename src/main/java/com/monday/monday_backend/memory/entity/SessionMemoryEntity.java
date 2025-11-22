@@ -4,6 +4,7 @@ import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
+import com.monday.shared.recording.RecordingScope;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.http.HttpStatus;
@@ -74,6 +75,11 @@ public class SessionMemoryEntity {
     @Column
     private String idempotencyKey;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Setter
+    private RecordingScope scope;
+
     @Setter
     private Instant lastOccurredAt;
 
@@ -85,10 +91,10 @@ public class SessionMemoryEntity {
     private long version;                  // optimistic updates on counters
 
     public SessionMemoryResponseDTO toDTO(int statusCode, String message) {
-        return new SessionMemoryResponseDTO(HttpStatus.valueOf(statusCode), message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
+        return new SessionMemoryResponseDTO(HttpStatus.valueOf(statusCode), scope, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
     }
 
-    public SessionMemoryResponseDTO toDTO(HttpStatus statusCode, String message) {
-        return new SessionMemoryResponseDTO(statusCode, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
+    public SessionMemoryResponseDTO toDTO(HttpStatus statusCode, RecordingScope scope, String message) {
+        return new SessionMemoryResponseDTO(statusCode, scope, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
     }
 }

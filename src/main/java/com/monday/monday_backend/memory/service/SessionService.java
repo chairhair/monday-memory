@@ -39,11 +39,12 @@ public class SessionService {
 
         Optional<SessionMemoryEntity> existing = sessionMemoryRepository.findByPrincipalIdAndIdempotencyKey(principalId, idempotencyKey);
         if (existing.isPresent()) {
-            return existing.get().toDTO(HttpStatus.CONFLICT, "Cannot create a new session memory when one is recording");
+            return existing.get().toDTO(HttpStatus.CONFLICT, request.scope(), "Cannot create a new session memory when one is recording");
         }
         SessionMemoryEntity entity = new SessionMemoryEntity();
         entity.setPrincipalId(principalId);
         entity.setPrincipalType(principalType);
+        entity.setScope(request.scope());
         entity.setSource(request.source());
         entity.setSessionState(SessionState.ACTIVE);
         entity.setSourceConversation(request.sourceConversationKey());
@@ -54,13 +55,13 @@ public class SessionService {
 
         try {
             SessionMemoryEntity saved = sessionMemoryRepository.saveAndFlush(entity);
-            return saved.toDTO(HttpStatus.OK, "Saved Session Memory Successfully");
+            return saved.toDTO(HttpStatus.OK, saved.getScope(), "Saved Session Memory Successfully");
         } catch (DataIntegrityViolationException de) {
             Optional<SessionMemoryEntity> seshMem = sessionMemoryRepository.findByPrincipalIdAndIdempotencyKey(principalId, idempotencyKey);
             if (seshMem.isPresent()){
-                return seshMem.get().toDTO(HttpStatus.CONFLICT, "Cannot create a new session memory when one is recording");
+                return seshMem.get().toDTO(HttpStatus.CONFLICT, request.scope(), "Cannot create a new session memory when one is recording");
             }
-            return entity.toDTO(HttpStatus.NOT_FOUND, "Something is wrong with the database: "+de);
+            return entity.toDTO(HttpStatus.NOT_FOUND, request.scope(),"Something is wrong with the database: "+de);
         }
     }
 
@@ -103,7 +104,17 @@ public class SessionService {
         currentSession.setUpdatedAt(now);
 
         SessionMemoryEntity saved = sessionMemoryRepository.save(currentSession);
-        return saved.toDTO(HttpStatus.OK, "Session memory stopped successfully");
+        return saved.toDTO(HttpStatus.OK, saved.getScope(),"Session memory stopped successfully");
     }
 
+
+    // PURE ENTITY RETRIEVAL FUNCTIONS BELOW
+
+    public SessionMemoryResponseDTO findBySourceConversation(String key) {
+        Optional<SessionMemoryEntity> sessionMemoryEntity = sessionMemoryRepository.findBySourceConversation(key);
+        if (sessionMemoryEntity.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return sessionMemoryEntity.get().toDTO(HttpStatus.OK, sessionMemoryEntity.get().getScope(), "Found Source Conversation");
+    }
 }
