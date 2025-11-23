@@ -40,7 +40,7 @@ public class SessionService {
         String idempotencyKey = resolveIdempotencyKey(principalType, principalId, request);
 
         Optional<SessionMemoryEntity> existing = sessionMemoryRepository.findByPrincipalIdAndIdempotencyKey(principalId, idempotencyKey);
-        if (existing.isPresent()) {
+        if (existing.isPresent() && existing.get().getSessionState() != SessionState.STOPPED) {
             return existing.get().toDTO(HttpStatus.CONFLICT, request.scope(), "Cannot create a new session memory when one is recording");
         }
         SessionMemoryEntity entity = new SessionMemoryEntity();
