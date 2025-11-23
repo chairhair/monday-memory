@@ -1,5 +1,6 @@
 package com.monday.monday_backend.memory.service;
 
+import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class SessionService {
 
     private final SessionMemoryRepository sessionMemoryRepository;
+    private final GuestService guestService;
 
     private String resolveIdempotencyKey(PrincipalType principalType, String principalId, CreateSessionRequestDTO request) {
         if (request == null) {
@@ -66,15 +68,20 @@ public class SessionService {
     }
 
     public SessionMemoryResponseDTO stopSessionMemory(PrincipalType principalType, String principalId, UpdateSessionRequestDTO updateSessionRequestDTO) {
+        String knownId = principalId;
+        if (principalType == PrincipalType.GUEST) {
+            knownId = guestService.resolveGuestId(principalId, updateSessionRequestDTO.sourceToGuestSource());
+        }
+
         SessionMemoryEntity currentSession = sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(UUID.fromString(updateSessionRequestDTO.sessionId()), principalType, principalId)
+                .findBySessionIdAndPrincipalTypeAndPrincipalId(UUID.fromString(updateSessionRequestDTO.sessionId()), principalType, knownId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Could not identify the session"
                 ));
 
         if (!currentSession.getPrincipalType().equals(principalType)
-                || !currentSession.getPrincipalId().equals(principalId)) {
+                || !currentSession.getPrincipalId().equals(knownId)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Principal cannot stop a session they do not own"

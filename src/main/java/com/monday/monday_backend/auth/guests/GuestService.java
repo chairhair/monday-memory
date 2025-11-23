@@ -18,8 +18,8 @@ public class GuestService {
     private final GuestRepository guestRepository;
     private final Clock clock;
 
-    @Transactional
-    public String resolveOrCreateGuestId(String guestKey, GuestSource source) {
+    @Transactional(readOnly = true)
+    public String resolveGuestId(String guestKey, GuestSource source) {
         String normalizedKey = guestKey.trim();
 
         // 1) Fast path: guest already exists
@@ -32,10 +32,20 @@ public class GuestService {
             // optional: no need to flush each time, JPA will track
             return guest.getGuestId().toString();
         }
+        return null;
+    }
+
+    @Transactional
+    public String resolveOrCreateGuestId(String guestKey, GuestSource source) {
+        String guestId = resolveGuestId(guestKey, source);
+
+        if (guestId != null) {
+            return guestId;
+        }
 
         // 2) Create a new guest
         GuestEntity newGuest = new GuestEntity();
-        newGuest.setGuestKey(normalizedKey);
+        newGuest.setGuestKey(guestKey.trim());
         newGuest.setSource(source);
         Instant now = Instant.now(clock);
         newGuest.setCreatedAt(now);
@@ -47,7 +57,7 @@ public class GuestService {
         } catch (DataIntegrityViolationException e) {
             // 3) Race condition: someone else just created it
             Optional<GuestEntity> winner =
-                    guestRepository.findByGuestKeyAndSource(normalizedKey, source);
+                    guestRepository.findByGuestKeyAndSource(guestKey.trim(), source);
 
             if (winner.isPresent()) {
                 return winner.get().getGuestId().toString();
