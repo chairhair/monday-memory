@@ -37,7 +37,7 @@ public class SessionMemoryController {
 
     @PostMapping("/memory")
     public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
-        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null, null);
     }
 
     @PostMapping
@@ -74,7 +74,7 @@ public class SessionMemoryController {
     @PostMapping("/list")
     public SessionMemoryResponseDTO getMemoryList(
             @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
-        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null);
+        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null, null);
     }
 
     @DeleteMapping
