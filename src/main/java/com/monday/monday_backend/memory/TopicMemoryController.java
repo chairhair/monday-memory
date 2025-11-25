@@ -2,7 +2,7 @@ package com.monday.monday_backend.memory;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.memory.service.MemoryService;
-import com.monday.shared.memory.dto.MemoryChunkDTO;
+import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
 import com.monday.shared.memory.topic.dto.TopicMemoryResponseDTO;
 import com.monday.shared.memory.topic.dto.TopicMemorySearchRequestDTO;
 import com.monday.shared.memory.topic.dto.TopicMemoryUpdateRequestDTO;
@@ -62,7 +62,7 @@ public class TopicMemoryController {
     @PutMapping("/{topicId}/memories/{id}")
     public TopicMemoryResponseDTO updateMemoryUnderTopic(@PathVariable("topicId") String topicId,
                                                          @PathVariable("id") String memoryId,
-                                                         @RequestBody MemoryChunkDTO memoryChunkDTO) {
+                                                         @RequestBody RequestMemoryChunkDTO memoryChunkDTO) {
         return new TopicMemoryResponseDTO(0, null, null, 0, null);
     }
 
