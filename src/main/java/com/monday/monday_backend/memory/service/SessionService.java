@@ -67,21 +67,16 @@ public class SessionService {
         }
     }
 
-    public SessionMemoryResponseDTO stopSessionMemory(PrincipalType principalType, String principalId, UpdateSessionRequestDTO updateSessionRequestDTO) {
-        String knownId = principalId;
-        if (principalType == PrincipalType.GUEST) {
-            knownId = guestService.resolveGuestId(principalId, updateSessionRequestDTO.sourceToGuestSource());
-        }
-
+    public SessionMemoryResponseDTO stopSessionMemory(UUID sessionId, PrincipalType principalType, String id) {
         SessionMemoryEntity currentSession = sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(UUID.fromString(updateSessionRequestDTO.sessionId()), principalType, knownId)
+                .findBySessionIdAndPrincipalTypeAndPrincipalId(sessionId, principalType, id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Could not identify the session"
                 ));
 
         if (!currentSession.getPrincipalType().equals(principalType)
-                || !currentSession.getPrincipalId().equals(knownId)) {
+                || !currentSession.getPrincipalId().equals(id)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Principal cannot stop a session they do not own"
