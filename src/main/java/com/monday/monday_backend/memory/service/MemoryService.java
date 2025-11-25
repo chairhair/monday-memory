@@ -1,15 +1,28 @@
 package com.monday.monday_backend.memory.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.monday.monday_backend.auth.guests.GuestService;
+import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
+import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
+import com.monday.monday_backend.memory.repo.MemoryChunkRepository;
+import com.monday.monday_backend.query.utils.HashUtil;
+import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
+import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.recording.RecordingScope;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -29,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MemoryService {
 
+    private final MemoryChunkRepository memoryChunkRepository;
     private final SessionService sessionService;
     private final TopicService topicService;
     private final GuestService guestService;
@@ -78,6 +92,42 @@ public class MemoryService {
         };
 
         return sessionService.findOrCreateSessionMemory(principalType, principalId, createRequestDTO);
+    }
+
+    /**
+     * Appends a new session memory to the key
+     */
+    @Transactional
+    public ResponseMemoryChunkDTO appendMemoryChunk(PrincipalType principalType, String principalId, RequestMemoryChunkDTO dto) {
+        SessionMemoryEntity session = sessionService.getSessionPresent(dto.sessionId(), principalType, principalId, true);
+        if (session == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session couldn't be identified!");
+        }
+        MemoryChunkEntity newMemoryChunkEntity = new MemoryChunkEntity();
+        newMemoryChunkEntity.setSession(session);
+        newMemoryChunkEntity.setOccurredAt(dto.timestamp() != null ? dto.timestamp() : Instant.now());
+        newMemoryChunkEntity.setIngestedAt(Instant.now());
+        newMemoryChunkEntity.setTags(dto.tags());
+
+        Map<String, Object> content = Map.of(
+                "body", dto.content(),
+                "principalType", dto.principalType().name(),
+                "principalId", dto.principalId(),
+                "source", dto.source().toString(),
+                "sourceConversationKey", dto.sourceConversationKey()
+        );
+        newMemoryChunkEntity.setContent(content);
+        newMemoryChunkEntity.setHashSha256(HashUtil.computeChunkHash(dto.sessionId(), principalType, principalId, newMemoryChunkEntity.getOccurredAt(), dto.content()));
+
+        MemoryChunkEntity responseChunkEntity;
+        try {
+            responseChunkEntity = memoryChunkRepository.save(newMemoryChunkEntity);
+            return responseChunkEntity.toDTO();
+        } catch (DataIntegrityViolationException de) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot save memory chunk entity: " + de);
+        } catch (JsonProcessingException ex) {
+            return new ResponseMemoryChunkDTO(dto.content(), principalType, principalId, newMemoryChunkEntity.getIngestedAt(), newMemoryChunkEntity.getTags());
+        }
     }
 
     /**

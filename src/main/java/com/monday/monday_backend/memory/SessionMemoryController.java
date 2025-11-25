@@ -4,6 +4,8 @@ import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.auth.users.helper.PrincipalEntry;
 import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.monday_backend.memory.service.SessionService;
+import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
+import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.memory.session.dto.*;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,17 @@ public class SessionMemoryController {
         } else {
             return memoryService.upsertToTopic(principalType, principalId, createRequestDTO);
         }
+    }
+
+    @PostMapping("/memory-chunk")
+    public ResponseMemoryChunkDTO createMemory(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestBody RequestMemoryChunkDTO memoryChunkDTO) {
+        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, memoryChunkDTO);
+        PrincipalType principalType = principalEntry.principalType();
+        String principalId = principalEntry.principalId();
+
+        return memoryService.appendMemoryChunk(principalType, principalId, memoryChunkDTO);
     }
 
     @PutMapping("/stop-session")

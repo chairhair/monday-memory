@@ -124,4 +124,15 @@ public class SessionService {
         }
         return sessionMemoryEntity.get().toDTO(HttpStatus.OK, sessionMemoryEntity.get().getScope(), "Found Source Conversation");
     }
+
+    public SessionMemoryEntity getSessionPresent(UUID sessionId, PrincipalType principalType, String id, boolean availabilityRequired) {
+        Optional<SessionMemoryEntity> sesh = sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(sessionId, principalType, id);
+        if (sesh.isPresent()) {
+            SessionMemoryEntity session = sesh.get();
+            if (session.getSessionState() == SessionState.ACTIVE || !availabilityRequired) {
+                return session;
+            }
+        }
+        return null;
+    }
 }
