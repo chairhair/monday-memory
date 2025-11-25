@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monday.monday_backend.query.utils.JsonMapConverter;
 import com.monday.monday_backend.query.utils.JsonStringListConverter;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
-import com.monday.shared.memory.session.utils.SessionSource;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;

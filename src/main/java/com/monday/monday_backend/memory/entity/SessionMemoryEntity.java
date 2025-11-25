@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -31,6 +32,10 @@ public class SessionMemoryEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid", length=50)
     private UUID sessionId;
+
+    @Setter
+    @OneToMany(mappedBy = "session")
+    private List<MemoryChunkEntity> chunks;
 
     @Setter
     @Enumerated(EnumType.STRING)
