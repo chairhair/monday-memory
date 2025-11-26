@@ -68,4 +68,12 @@ keytool -genkeypair \
    -storepass <YOUR PASSWORD HERE>
 ```
 2) Store that under your /src/main/resources/ssl/mm-local.p12
-3) Wire HTTPs into your properties and make sure you're running local
+3) Make sure that you're writing the environment properties under your .env (Step 4 will explain the next steps) 
+4) Wire HTTPs into your application.properties and make sure you're running local like so:
+   server.ssl.enabled=true
+   server.ssl.key-store=classpath:ssl/${SSL_KEY_STORE}
+   server.ssl.key-store-password=${SSL_PASSWORD}
+   server.ssl.key-store-type=PKCS12
+   server.ssl.key-alias=${SSL_ALIAS}
+5) Check that you can curl your localhost
+   curl -k https://localhost:8443/actuator/health
