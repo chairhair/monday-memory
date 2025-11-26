@@ -16,7 +16,7 @@ import java.util.UUID;
 @Table(name = "memory_chunk",
         indexes = {
                 @Index(name="idx_chunk_session_time", columnList = "sessionId,occurredAt"),
-                @Index(name="idx_chunk_service", columnList = "service")
+                @Index(name="idx_chunk_session", columnList = "session")
         },
         uniqueConstraints = {
                 // helps de-dupe per session using canonical hash if you want

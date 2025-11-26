@@ -53,6 +53,61 @@ For Scope, use...
 @PreAuthorize("hasAuthority('SCOPE_LOGIN')")
 ```
 
+## How to run docker under here to get Redis + ElasticSearch
+
+1) First, remove all docker containers
+
+```
+sudo apt remove docker docker-engine docker.io containerd runc
+```
+
+2) Add the GPG key
+
+```
+sudo apt update
+sudo apt install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+```
+
+3) Add Docker's official repo
+
+```
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
+
+4) Install Docker Engine + Docker Compose
+
+```
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+5) Add self to the docker group
+
+```
+sudo usermod -aG docker $USER
+```
+
+Exit out of the terminal, then get back in and start docker.
+
+If you're on Linux, this is....
+```
+sudo systemctl start docker
+```
+
+Otherwise, install Docker-Desktop, Enable WSL integration, and BAM you're done
+
+
 ## How to turn on HTTPS for MM Backend
 
 1) Generate a self-signed cert:
@@ -70,10 +125,18 @@ keytool -genkeypair \
 2) Store that under your /src/main/resources/ssl/mm-local.p12
 3) Make sure that you're writing the environment properties under your .env (Step 4 will explain the next steps) 
 4) Wire HTTPs into your application.properties and make sure you're running local like so:
+```
    server.ssl.enabled=true
    server.ssl.key-store=classpath:ssl/${SSL_KEY_STORE}
    server.ssl.key-store-password=${SSL_PASSWORD}
    server.ssl.key-store-type=PKCS12
    server.ssl.key-alias=${SSL_ALIAS}
+```
+Make sure that you ALSO run the following docker containers for your redis in-mem cache and ElasticSearch:
+```
+docker run --name mm-redis -p 6379:6379 -d redis:7
+docker run --name mm-es -p 9200:9200 -e "discovery.type=single-node" -d docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+```
+
 5) Check that you can curl your localhost
    curl -k https://localhost:8443/actuator/health
