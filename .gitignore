@@ -1,6 +1,7 @@
 HELP.md
 .gradle
 .env
+mm-local.p12
 gradle/
 generate_openssl.ps1
 build/

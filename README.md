@@ -52,3 +52,20 @@ For Scope, use...
 ```
 @PreAuthorize("hasAuthority('SCOPE_LOGIN')")
 ```
+
+## How to turn on HTTPS for MM Backend
+
+1) Generate a self-signed cert:
+```
+keytool -genkeypair \
+   -alias mm-local \
+   -keyalg RSA \
+   -keysize 2048 \
+   -storetype PKCS12 \
+   -keystore mm-local.p12 \
+   -validity 3650 \
+   -dname "CN=localhost, OU=Dev, O=MondayMemory, L=Nowhere, S=Nowhere, C=US" \
+   -storepass <YOUR PASSWORD HERE>
+```
+2) Store that under your /src/main/resources/ssl/mm-local.p12
+3) Wire HTTPs into your properties and make sure you're running local
