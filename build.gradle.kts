@@ -58,6 +58,7 @@ dependencies {
 	implementation("io.jsonwebtoken:jjwt-jackson:0.11.5")
 	implementation("me.paulschwarz:spring-dotenv:4.0.0")
 	implementation("com.stripe:stripe-java:30.0.0")
+	implementation("com.openai:openai-java-spring-boot-starter:4.8.0")
 	compileOnly("org.projectlombok:lombok")
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
