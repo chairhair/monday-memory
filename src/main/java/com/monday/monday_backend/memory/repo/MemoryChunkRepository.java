@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface MemoryChunkRepository extends JpaRepository<MemoryChunkEntity, String> {
-    List<MemoryChunkEntity> findTop5BySessionOrderByCreatedAtDesc(SessionMemoryEntity sessionMemoryEntity);
+    List<MemoryChunkEntity> findTop5BySessionOrderByOccurredAtDesc(SessionMemoryEntity sessionMemoryEntity);
 }

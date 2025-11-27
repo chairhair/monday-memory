@@ -8,10 +8,7 @@ import com.monday.shared.query.guest.dto.QueryGuestRequestDTO;
 import com.monday.shared.query.guest.dto.QueryGuestResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * "Hey, what can I give Anon?" - This class
@@ -36,7 +33,7 @@ public class QueryGuestController {
     /**
      * Searches/reads a curated/public subset
      */
-    @GetMapping("/public/q")
+    @PostMapping("/public/q")
     public QueryGuestResponseDTO searchQuery(
             @AuthenticationPrincipal AuthUser authUser,
             QueryGuestRequestDTO requestDTO) {
