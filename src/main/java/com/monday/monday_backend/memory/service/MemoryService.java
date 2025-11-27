@@ -75,7 +75,7 @@ public class MemoryService {
         List<MemoryChunkEntity> chunks = new ArrayList<>();
         // If we don't have a user, we're going to just assume this is a blanket query to our llm.
         if (session != null) {
-            chunks = memoryChunkRepository.findTop5BySessionOrderByCreatedAtDesc(session);
+            chunks = memoryChunkRepository.findTop5BySessionOrderByOccurredAtDesc(session);
         }
 
         String contextText = buildContextFromChunks(chunks);
