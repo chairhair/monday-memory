@@ -34,7 +34,7 @@ public class SessionMemoryEntity {
     private UUID sessionId;
 
     @Setter
-    @OneToMany(mappedBy = "session")
+    @OneToMany(mappedBy = "session", fetch = FetchType.LAZY)
     private List<MemoryChunkEntity> chunks;
 
     @Setter

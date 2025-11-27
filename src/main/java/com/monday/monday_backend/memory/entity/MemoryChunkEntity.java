@@ -16,7 +16,7 @@ import java.util.UUID;
 @Table(name = "memory_chunk",
         indexes = {
                 @Index(name="idx_chunk_session_time", columnList = "sessionId,occurredAt"),
-                @Index(name="idx_chunk_session", columnList = "session")
+                @Index(name="idx_chunk_session", columnList = "sessionId")
         },
         uniqueConstraints = {
                 // helps de-dupe per session using canonical hash if you want
@@ -58,8 +58,4 @@ public class MemoryChunkEntity {
     @Column(length = 64, nullable = false) // SHA-256 of normalized body
     private String hashSha256;
 
-    public ResponseMemoryChunkDTO toDTO() throws JsonProcessingException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        return new ResponseMemoryChunkDTO(objectMapper.writeValueAsString(content.entrySet()), session.getPrincipalType(), session.getPrincipalId(), ingestedAt, tags);
-    }
 }

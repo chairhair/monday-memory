@@ -5,6 +5,7 @@ import com.monday.shared.llm.LlmMessage;
 import com.monday.shared.llm.LlmRequestDTO;
 import com.monday.shared.llm.LlmResponseDTO;
 import com.monday.shared.openai.OpenAiChatRequest;
+import com.monday.shared.openai.OpenAiChatResponse;
 import org.apache.http.HttpHeaders;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -54,7 +56,34 @@ public class OpenAiLlmClient implements LlmClient {
                 temperature
         );
 
-        return null;
+        OpenAiChatResponse response = webClient.post()
+                .uri("/v1/chat/completions")
+                .bodyValue(payload)
+                .retrieve()
+                .bodyToMono(OpenAiChatResponse.class)
+                .timeout(defaultTimeout)
+                .onErrorResume(ex -> {
+                    // TODO: add better logging + custom exception
+                    return Mono.error(new RuntimeException("LLM call failed", ex));
+                })
+                .block();
+
+        if (response == null || response.choices().isEmpty()) {
+            throw new IllegalStateException("Empty response from OpenAI");
+        }
+
+        OpenAiChatResponse.Choice first = response.choices().get(0);
+
+        return new LlmResponseDTO(
+                first.message().content(),
+                response.model(),
+                new LlmResponseDTO.Usage(
+                        response.usage() != null ? response.usage().prompt_tokens() : null,
+                        response.usage() != null ? response.usage().completion_tokens() : null,
+                        response.usage() != null ? response.usage().total_tokens() : null
+                ),
+                false // fromCache – will matter when you add caching
+        );
     }
 
     private List<OpenAiChatRequest.Message> mapMessages(List<LlmMessage> messages) {

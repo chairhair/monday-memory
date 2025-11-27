@@ -1,9 +1,13 @@
 package com.monday.monday_backend.query.guest;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.auth.users.helper.PrincipalEntry;
 import com.monday.monday_backend.memory.service.MemoryService;
+import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.query.guest.dto.QueryGuestRequestDTO;
 import com.monday.shared.query.guest.dto.QueryGuestResponseDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,8 +37,15 @@ public class QueryGuestController {
      * Searches/reads a curated/public subset
      */
     @GetMapping("/public/q")
-    public QueryGuestResponseDTO searchQuery(QueryGuestRequestDTO query) {
-        return null;
+    public QueryGuestResponseDTO searchQuery(
+            @AuthenticationPrincipal AuthUser authUser,
+            QueryGuestRequestDTO requestDTO) {
+
+        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, requestDTO);
+        PrincipalType principalType = principalEntry.principalType();
+        String principalId = principalEntry.principalId();
+
+        return memory.query(principalType, principalId, requestDTO);
     }
 
 

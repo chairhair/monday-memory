@@ -5,6 +5,7 @@ import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.query.guest.dto.QueryGuestRequestDTO;
 
 /**
  * Used Specifically as a shorthand for handling AuthUser and createRequestDTO entries
@@ -33,6 +34,10 @@ public record PrincipalEntry(PrincipalType principalType, String principalId) {
     }
 
     public static PrincipalEntry authRetrieval(AuthUser user, RequestMemoryChunkDTO requestMemoryChunkDTO) {
+        return authRetrievalHelper(user, requestMemoryChunkDTO.principalId());
+    }
+
+    public static PrincipalEntry authRetrieval(AuthUser user, QueryGuestRequestDTO requestMemoryChunkDTO) {
         return authRetrievalHelper(user, requestMemoryChunkDTO.principalId());
     }
 }
