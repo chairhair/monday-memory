@@ -7,8 +7,10 @@ import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.query.guest.dto.QueryGuestRequestDTO;
 import com.monday.shared.query.guest.dto.QueryGuestResponseDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * "Hey, what can I give Anon?" - This class
@@ -36,11 +38,14 @@ public class QueryGuestController {
     @PostMapping("/public/q")
     public QueryGuestResponseDTO searchQuery(
             @AuthenticationPrincipal AuthUser authUser,
-            QueryGuestRequestDTO requestDTO) {
+            @RequestBody QueryGuestRequestDTO requestDTO) {
 
         PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, requestDTO);
         PrincipalType principalType = principalEntry.principalType();
         String principalId = principalEntry.principalId();
+        if (requestDTO.query() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "There's no query!");
+        }
 
         return memory.query(principalType, principalId, requestDTO);
     }
