@@ -55,11 +55,11 @@ public class SessionMemoryController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principalId must be provided!");
         }
 
-        if (principalType == PrincipalType.GUEST) {
-            return memoryService.upsertToSession(principalType, principalId, createRequestDTO);
-        } else {
-            return memoryService.upsertToTopic(principalType, principalId, createRequestDTO);
+        SessionMemoryResponseDTO sessionMemoryResponseDTO = memoryService.upsertToSession(principalType, principalId, createRequestDTO);
+        if (createRequestDTO.topicName() != null) {
+            // Add latest info regarding our topic name and push session memory under it.
         }
+        return sessionMemoryResponseDTO;
     }
 
     @PostMapping("/memory-chunk")
