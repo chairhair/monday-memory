@@ -1,6 +1,5 @@
 package com.monday.monday_backend.memory.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.llm.LlmClient;
 import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
@@ -135,7 +134,6 @@ public class MemoryService {
     /**
      * - Exactly as it implies: Creates an entirely new session based on what's available.
      * - This occurs when we're about to exit chat or we just want to save. Can be implicit/explicit.
-     * - EXPLICITLY FOR GUESTS
      */
     @Transactional
     public SessionMemoryResponseDTO upsertToSession(PrincipalType principalType, String id, CreateSessionRequestDTO createRequestDTO) {

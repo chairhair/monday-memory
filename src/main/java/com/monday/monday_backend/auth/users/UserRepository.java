@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     public Optional<UserEntity> findByEmailAndPassword(String email, String password);
 
-    public Optional<UserEntity> findByEmailAndServiceName(String email, String serviceName);
+    public Optional<UserEntity> findByEmail(String email);
 
     @Query("SELECT u FROM UserEntity u WHERE u.id IN :ids")
     Page<UserEntity> findByIdIn(@Param("ids") List<Long> ids, Pageable pageable);

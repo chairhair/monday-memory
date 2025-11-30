@@ -12,7 +12,10 @@ import java.util.Set;
 
 @Getter
 @NoArgsConstructor
-@Table(name = "role_entity")
+@Table(name = "role_entity",
+       uniqueConstraints = {
+               @UniqueConstraint(name = "uk_role_entity_access_level", columnNames = "access_level")
+       })
 @Entity
 public class RolesEntity {
     @Id

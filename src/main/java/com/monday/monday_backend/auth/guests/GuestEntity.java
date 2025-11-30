@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.guests;
 
+import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.shared.memory.session.utils.GuestSource;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -8,6 +9,10 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Represents the anonymous external identity
+ */
+@Getter
 @Entity
 @Table(
     name = "guest",
@@ -24,6 +29,11 @@ public class GuestEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid")
     private UUID guestId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    @Setter
+    private UserEntity user;
 
     @Getter
     @Setter

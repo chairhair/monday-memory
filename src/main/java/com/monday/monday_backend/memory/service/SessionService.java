@@ -1,5 +1,6 @@
 package com.monday.monday_backend.memory.service;
 
+import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
@@ -50,6 +51,7 @@ public class SessionService {
                 saved = sessionMemoryRepository.saveAndFlush(currentEntity);
                 return currentEntity.toDTO(HttpStatus.OK, saved.getScope(), "Saved Session Memory Successfully");
             }
+            GuestEntity guest = guestService.resolveGuest(request.guestKey(), request.sourceToGuestSource());
             SessionMemoryEntity entity = new SessionMemoryEntity();
             entity.setPrincipalId(principalId);
             entity.setPrincipalType(principalType);
@@ -60,6 +62,7 @@ public class SessionService {
             entity.setIdempotencyKey(idempotencyKey);
             entity.setCreatedAt(Instant.now());
             entity.setUpdatedAt(entity.getCreatedAt());
+            entity.setUser(guest.getUser());
             entity.setChunkCount(0);
 
             saved = sessionMemoryRepository.saveAndFlush(entity);

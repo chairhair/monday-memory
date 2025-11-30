@@ -1,5 +1,6 @@
 package com.monday.monday_backend.memory.entity;
 
+import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
@@ -33,6 +34,13 @@ public class SessionMemoryEntity {
     @Column(columnDefinition = "uuid", length=50)
     private UUID sessionId;
 
+    // This is our Billing/auth/first-class account. Represents a canonical MM user.
+    // - If this account dies, so does the user row
+    @Setter
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserEntity user;
+
     @Setter
     @OneToMany(mappedBy = "session", fetch = FetchType.LAZY)
     private List<MemoryChunkEntity> chunks;
@@ -46,6 +54,8 @@ public class SessionMemoryEntity {
     @Column(nullable = false, length = 128)
     private String sourceConversation;    // e.g. The chat number associated with it; thread id, etc.
 
+    // PRINCIPAL TYPE and PRINCIPAL ID both ask: "Who was talking in this source?"
+    //  - This helps differentiate between guests and actual users
     @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)

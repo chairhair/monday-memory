@@ -11,22 +11,23 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
+/**
+ * Our canonical internal account
+ */
 @Getter
 @NoArgsConstructor
-@Table(name = "user_entity", uniqueConstraints = {
+@Table(name = "users", uniqueConstraints = {
         @UniqueConstraint(name = "uk_users_email", columnNames = "email")
 })
 @Entity
 public class UserEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
-
-    @Setter
-    @Column(name = "serviceName")
-    private String serviceName;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "id")
+    private UUID id;
 
     @Setter
     @Column(name = "email")
