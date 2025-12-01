@@ -127,8 +127,9 @@ public class MemoryService {
      * - EXPLICITLY FOR USERS!
      */
     @Transactional
-    public SessionMemoryResponseDTO upsertToTopic(PrincipalType principalType, String id, CreateSessionRequestDTO createRequestDTO) {
-        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, RecordingScope.PRIVATE, null, null, null, null, null, null);
+    public SessionMemoryResponseDTO upsertToTopic(PrincipalType principalType, String id, String topicName, String sessionId) {
+        SessionMemoryEntity sessionMemory = sessionService.getSessionPresent(UUID.fromString(sessionId), principalType, id, false);
+        return topicService.addSessionToTopic(topicName, id, sessionMemory);
     }
 
     /**

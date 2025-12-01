@@ -54,10 +54,18 @@ public class SessionMemoryController {
         if (principalId == null && principalType == PrincipalType.USER) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principalId must be provided!");
         }
+        else if (createRequestDTO.topicName() != null && principalType == PrincipalType.GUEST) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can't assign session if guest has not registered");
+        }
 
         SessionMemoryResponseDTO sessionMemoryResponseDTO = memoryService.upsertToSession(principalType, principalId, createRequestDTO);
-        if (createRequestDTO.topicName() != null) {
+        if (createRequestDTO.topicName() != null && principalType == PrincipalType.USER) {
             // Add latest info regarding our topic name and push session memory under it.
+            try {
+                memoryService.upsertToTopic(principalType, principalId, createRequestDTO.topicName(), sessionMemoryResponseDTO.sessionIds().getFirst());
+            } catch (Exception e) {
+                return sessionMemoryResponseDTO.updateStatus(HttpStatus.CONFLICT, "Could not update topic", sessionMemoryResponseDTO);
+            }
         }
         return sessionMemoryResponseDTO;
     }

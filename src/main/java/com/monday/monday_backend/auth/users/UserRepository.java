@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
@@ -19,4 +20,5 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     @Query("SELECT u FROM UserEntity u WHERE u.id IN :ids")
     Page<UserEntity> findByIdIn(@Param("ids") List<Long> ids, Pageable pageable);
 
+    public Optional<UserEntity> findById(UUID id);
 }
