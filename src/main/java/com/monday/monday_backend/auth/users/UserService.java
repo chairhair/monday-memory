@@ -4,6 +4,9 @@ import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.validation.ValidationUtils;
+import com.monday.monday_backend.communication.entity.UserExternalAccount;
+import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
+import com.monday.shared.auth.dto.ExternalLoginRequestDTO;
 import com.monday.shared.auth.dto.UserRequestDTO;
 import com.monday.shared.auth.dto.UserResponseDTO;
 import com.monday.shared.auth.dto.UserSearchRequestDTO;
@@ -11,12 +14,15 @@ import com.monday.shared.auth.utils.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +34,7 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserExternalAccountRepository userExternalAccountRepository;
     private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
     private final static Logger log = LoggerFactory.getLogger(UserService.class);
@@ -35,7 +42,7 @@ public class UserService {
     @Transactional
     public UserResponseDTO upsertUser(UserRequestDTO dto) {
         if (!ValidationUtils.isEmailLegitimate(dto.emailAddress()) || !ValidationUtils.isPasswordLegitimate(dto.password())) {
-            return UserResponseDTO.failedDTO(HttpStatus.UNAUTHORIZED.value(), "Username or passwords are not valid");
+            return UserResponseDTO.failedDTO(HttpStatus.UNAUTHORIZED, "Username or passwords are not valid");
         }
         UserEntity existing = null;
         if (dto.uuid() != null) {
@@ -48,7 +55,7 @@ public class UserService {
         if (existing != null) {
             Optional<UserEntity> potentialDuplicates = userRepository.findByEmail(dto.emailAddress());
             if (potentialDuplicates.isPresent() && potentialDuplicates.get().getId() != existing.getId()) {
-                return UserResponseDTO.failedDTO(HttpStatus.CONFLICT.value(), "Duplicate email already found.");
+                return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email already found.");
             }
             if (!existing.getEmail().equals(dto.emailAddress())) {
                 existing.setEmail(dto.emailAddress());
@@ -64,11 +71,7 @@ public class UserService {
 
         RolesEntity rolesEntity = rolesRepository.findByAccessLevel(AccessLevel.USER).orElseThrow(() -> new RuntimeException("Default role USER not found"));
 
-        UserEntity newUser = new UserEntity();
-        newUser.setEmail(dto.emailAddress());
-        newUser.setPassword(passwordEncoder.encode(dto.password()));
-        newUser.addRole(rolesEntity);
-        userRepository.save(newUser);
+        UserEntity newUser = saveUser(dto.emailAddress(), passwordEncoder.encode(dto.password()), Set.of(rolesEntity));
         return UserResponseDTO.successfulDTO(newUser.getEmail(), Set.of(AccessLevel.USER), new HashSet<>());
     }
 
@@ -89,4 +92,49 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public UserResponseDTO loginUser(ExternalLoginRequestDTO externalLoginRequestDTO) {
+        Optional<UserExternalAccount> findExternalAccount = userExternalAccountRepository.findByProviderAndExternalId(externalLoginRequestDTO.provider(), externalLoginRequestDTO.externalId());
+        UserEntity user;
+        Instant now = Instant.now();
+        Set<RolesEntity> setOfRoles;
+        if (findExternalAccount.isEmpty()) {
+            try {
+                // If the account is empty, chances are it hasn't been created yet and should be.
+                UserExternalAccount externalAccount = new UserExternalAccount();
+                setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
+                user = saveUser(null, null, setOfRoles);
+                externalAccount.setUser(user);
+                externalAccount.setProvider(externalLoginRequestDTO.provider());
+                externalAccount.setExternalId(externalLoginRequestDTO.externalId());
+                externalAccount.setCreatedAt(now);
+                userExternalAccountRepository.save(externalAccount);
+                return UserResponseDTO.successfulDTO(null, Set.of(AccessLevel.GUEST), null);
+            } catch (DataIntegrityViolationException dVE) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not create the account: "+dVE);
+            }
+        }
+        user = findExternalAccount.get().getUser();
+        if (user == null) {
+            // If we can't find a user, we must log it and save it
+            setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
+            try {
+                saveUser(null, null, setOfRoles);
+            } catch (DataIntegrityViolationException dVE) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not create the account: "+dVE);
+            }
+            return UserResponseDTO.successfulDTO(null, Set.of(AccessLevel.GUEST), null);
+        }
+        return UserResponseDTO.successfulDTO(user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), user.getTokensEntity().stream().map(TokensEntity::getToken).collect(Collectors.toSet()));
+    }
+
+
+    private UserEntity saveUser(String email, String Password, Set<RolesEntity> roles) throws DataIntegrityViolationException {
+        UserEntity user = new UserEntity();
+        user.addRole(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
+        user.setEmail(null);
+        user.setPassword(null);
+        userRepository.save(user);
+        return user;
+    }
 }

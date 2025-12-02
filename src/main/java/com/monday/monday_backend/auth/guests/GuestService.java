@@ -4,6 +4,8 @@ import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.monday_backend.auth.users.UserRepository;
+import com.monday.monday_backend.communication.entity.UserExternalAccount;
+import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.session.utils.GuestSource;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class GuestService {
 
     private final GuestRepository guestRepository;
     private final UserRepository userRepository;
+    private final UserExternalAccountRepository externalAccountRepository;
     private final RolesRepository rolesRepository;
     private final Clock clock;
 
@@ -67,7 +70,7 @@ public class GuestService {
         if (guestAccessLevel.isEmpty()) {
             throw new RuntimeException("There's an issue with using the guest role");
         }
-
+        Instant now = Instant.now(clock);
         UserEntity guestUser = new UserEntity();
         guestUser.setPassword(null);
         guestUser.setEmail(null);
@@ -77,12 +80,20 @@ public class GuestService {
         } catch (DataIntegrityViolationException dVE) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot save latest guest user account: "+dVE);
         }
+        UserExternalAccount assignUserExternalAccount = new UserExternalAccount();
+        assignUserExternalAccount.setCreatedAt(now);
+        assignUserExternalAccount.setExternalId(guestId);
+        assignUserExternalAccount.setUser(guestUser);
+        try {
+            externalAccountRepository.save(assignUserExternalAccount);
+        } catch (DataIntegrityViolationException dVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot make a new external user account: "+dVE);
+        }
 
         GuestEntity newGuest = new GuestEntity();
         newGuest.setGuestKey(guestKey.trim());
         newGuest.setSource(source);
         newGuest.setUser(guestUser);
-        Instant now = Instant.now(clock);
         newGuest.setCreatedAt(now);
         newGuest.setLastSeenAt(now);
 

@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.users;
 
+import com.monday.shared.auth.dto.ExternalLoginRequestDTO;
 import com.monday.shared.auth.dto.UserRequestDTO;
 import com.monday.shared.auth.dto.UserResponseDTO;
 import com.monday.shared.auth.dto.UserSearchRequestDTO;
@@ -33,5 +34,10 @@ public class UserController {
     @PostMapping
     public List<UserResponseDTO> getUsers(@RequestBody UserSearchRequestDTO userSearchRequestDTO) {
         return userService.retrieveUsers(userSearchRequestDTO);
+    }
+
+    @PostMapping("/login")
+    public UserResponseDTO login(@RequestBody ExternalLoginRequestDTO externalRequestDTO) {
+        return userService.loginUser(externalRequestDTO);
     }
 }
