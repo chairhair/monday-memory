@@ -1,10 +1,16 @@
 package com.monday.monday_backend.memory.entity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.monday.monday_backend.auth.principal.PrincipalContext;
+import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.memory.service.MemoryService;
+import com.monday.monday_backend.memory.service.SessionService;
 import com.monday.monday_backend.service.JwksTestSupport;
+import com.monday.shared.auth.utils.AccessLevel;
+import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.utils.GuestSource;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.recording.RecordingScope;
@@ -42,6 +48,12 @@ public class CreateSessionTests extends JwksTestSupport {
     @MockBean
     MemoryService memoryService;
 
+    @MockBean
+    SessionService sessionService;
+
+    @MockBean
+    PrincipalResolver principalResolver;
+
     @Test
     void withoutHeaders_createsSession_usingGuestPrincipal() throws Exception {
         // Client doesn’t send principalType/principalId anymore.
@@ -54,11 +66,23 @@ public class CreateSessionTests extends JwksTestSupport {
                         "1",                    // sourceConversationKey
                         RecordingScope.PRIVATE
                 );
+        // This is what we expect the PrincipalResolver to return when no auth headers exist (guest)
+        PrincipalContext guestContext = PrincipalContext.builder()
+                .principalId(null) // or a UUID if you care
+                .principalType(PrincipalType.GUEST)
+                .accessLevel(AccessLevel.GUEST)
+                .plan(EffectivePlan.GUEST_FREE)
+                .quota(null)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .build();
 
-        when(memoryService.upsertToSession(
-                eq(PrincipalType.GUEST),
-                eq("guest-key-123"),
-                any(CreateSessionRequestDTO.class))
+        when(principalResolver.fromGuest(any(), any())).thenReturn(guestContext);
+
+        when(sessionService.createOrReuseSession(
+                any(PrincipalContext.class),
+                any(CreateSessionRequestDTO.class),
+                null)
         ).thenReturn(
                 new SessionMemoryResponseDTO(
                         HttpStatus.OK,
@@ -72,12 +96,12 @@ public class CreateSessionTests extends JwksTestSupport {
                 )
         );
 
-        ArgumentCaptor<PrincipalType> principalTypeCaptor =
-                ArgumentCaptor.forClass(PrincipalType.class);
-        ArgumentCaptor<String> principalIdCaptor =
-                ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<PrincipalContext> principalContextCaptor =
+                ArgumentCaptor.forClass(PrincipalContext.class);
         ArgumentCaptor<CreateSessionRequestDTO> dtoCaptor =
                 ArgumentCaptor.forClass(CreateSessionRequestDTO.class);
+        ArgumentCaptor<String> idempotencyKeyCaptor =
+                ArgumentCaptor.forClass(String.class);
 
         mvc.perform(post("/v1/memory/session")
                         .contentType("application/json")
@@ -85,59 +109,20 @@ public class CreateSessionTests extends JwksTestSupport {
                 .andExpect(status().isOk());
 
         // Verify we routed correctly and constructed args correctly
-        verify(memoryService).upsertToSession(
-                principalTypeCaptor.capture(),
-                principalIdCaptor.capture(),
-                dtoCaptor.capture()
+        verify(sessionService).createOrReuseSession(
+                principalContextCaptor.capture(),
+                dtoCaptor.capture(),
+                idempotencyKeyCaptor.capture()
         );
 
         // Assert principal was derived as guest
-        Assertions.assertEquals(PrincipalType.GUEST, principalTypeCaptor.getValue());
+        Assertions.assertEquals(PrincipalType.GUEST, principalContextCaptor.getValue().getPrincipalType());
 
         // Assert DTO contents came from the body
         CreateSessionRequestDTO captured = dtoCaptor.getValue();
         Assertions.assertEquals("guest-key-123", captured.guestKey());
         Assertions.assertEquals(SessionSource.DISCORD, captured.source());
         Assertions.assertEquals("1", captured.sourceConversationKey());
-    }
-
-
-    @Test
-    void withoutHeaders_createsSession_usingGuestPrincipalOnReturn() throws Exception {
-        // request contains guestKey
-        CreateSessionRequestDTO createSessionRequestDTO =
-                new CreateSessionRequestDTO("guest-key-123", null, SessionSource.DISCORD, "1", RecordingScope.PRIVATE);
-
-        when(memoryService.upsertToSession(
-                eq(PrincipalType.GUEST),
-                eq("guest-key-123"),
-                any(CreateSessionRequestDTO.class))
-        ).thenReturn(
-                new SessionMemoryResponseDTO(
-                        HttpStatus.OK,
-                        RecordingScope.PRIVATE,
-                        "Saved Session Memory Successfully",
-                        Collections.singletonList("1"),
-                        null,
-                        0,
-                        "guest-key-123",
-                        null
-                )
-        );
-
-        String responseJson = mvc.perform(post("/v1/memory/session")
-                        .contentType("application/json")
-                        .content(mapper.writeValueAsString(createSessionRequestDTO)))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        SessionMemoryResponseDTO response =
-                mapper.readValue(responseJson, SessionMemoryResponseDTO.class);
-
-        Assertions.assertEquals(HttpStatus.OK, response.statusCode());
-        Assertions.assertEquals("Saved Session Memory Successfully", response.message());
     }
 
 

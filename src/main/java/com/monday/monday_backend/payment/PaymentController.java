@@ -12,6 +12,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/v1/payments")
 @RequiredArgsConstructor
@@ -24,9 +26,8 @@ public class PaymentController {
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody @Valid StartCheckoutRequestDTO req
             ) {
-        Long userId = (authUser != null) ? AuthHelper.safeToLong(authUser.id()) : null;
         try {
-            return paymentService.createSubscriptionCheckout(userId, req.planCode(), req.successUrl(), req.cancelUrl());
+            return paymentService.createSubscriptionCheckout(UUID.fromString(authUser.id()), req.planCode(), req.successUrl(), req.cancelUrl());
         } catch (StripeException se) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe could not process the payment: "+se);
         } catch (Exception ex) {

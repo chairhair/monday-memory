@@ -13,12 +13,10 @@ import java.util.UUID;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
-    public Optional<UserEntity> findByEmailAndPassword(String email, String password);
-
     public Optional<UserEntity> findByEmail(String email);
 
     @Query("SELECT u FROM UserEntity u WHERE u.id IN :ids")
     Page<UserEntity> findByIdIn(@Param("ids") List<Long> ids, Pageable pageable);
 
-    public Optional<UserEntity> findById(UUID id);
+    public Optional<UserEntity> findByUserId(UUID id);
 }

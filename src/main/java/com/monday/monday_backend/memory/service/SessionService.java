@@ -1,7 +1,7 @@
 package com.monday.monday_backend.memory.service;
 
-import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.guests.GuestService;
+import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
@@ -27,65 +27,125 @@ public class SessionService {
     private final SessionMemoryRepository sessionMemoryRepository;
     private final GuestService guestService;
 
-    private String resolveIdempotencyKey(PrincipalType principalType, String principalId, CreateSessionRequestDTO request) {
-        if (request == null) {
-            throw new NullPointerException("Request cannot be empty; it must contain a valid User or Guest");
-        }
-        if (principalType == PrincipalType.GUEST && principalId == null) {
-            return request.toIdempotencyKey(UUID.randomUUID().toString(), principalType);
+    /**
+     * Create or reuse an ACTIVE session for the given principal.
+     */
+    public SessionMemoryResponseDTO createOrReuseSession(PrincipalContext principal,
+                                                         CreateSessionRequestDTO request,
+                                                         String idempotencyKey) {
+        String principalId = principal.getPrincipalId().toString();
+        PrincipalType principalType = principal.getPrincipalType();
+
+        String currentIdempotencyKey = null;
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            currentIdempotencyKey = UUID.randomUUID().toString();
         }
 
-        return request.toIdempotencyKey(principalId, principalType);
-    }
-
-    public SessionMemoryResponseDTO findOrCreateSessionMemory(PrincipalType principalType, String principalId, CreateSessionRequestDTO request) {
-        String idempotencyKey = resolveIdempotencyKey(principalType, principalId, request);
         try {
-            Optional<SessionMemoryEntity> existing = sessionMemoryRepository.findByPrincipalIdAndIdempotencyKey(principalId, idempotencyKey);
-            SessionMemoryEntity saved;
-            if (existing.isPresent() && existing.get().getSessionState() != SessionState.STOPPED) {
-                return existing.get().toDTO(HttpStatus.CONFLICT, request.scope(), "Cannot create a new session memory when one is recording");
-            } else if (existing.isPresent()) {
-                SessionMemoryEntity currentEntity = existing.get();
-                currentEntity.setSessionState(SessionState.ACTIVE);
-                saved = sessionMemoryRepository.saveAndFlush(currentEntity);
-                return currentEntity.toDTO(HttpStatus.OK, saved.getScope(), "Saved Session Memory Successfully");
-            }
-            GuestEntity guest = guestService.resolveGuest(request.guestKey(), request.sourceToGuestSource());
             SessionMemoryEntity entity = new SessionMemoryEntity();
-            entity.setPrincipalId(principalId);
             entity.setPrincipalType(principalType);
-            entity.setScope(request.scope());
+            entity.setPrincipalId(principalId);
             entity.setSource(request.source());
             entity.setSessionState(SessionState.ACTIVE);
             entity.setSourceConversation(request.sourceConversationKey());
-            entity.setIdempotencyKey(idempotencyKey);
+            entity.setIdempotencyKey(currentIdempotencyKey);
             entity.setCreatedAt(Instant.now());
             entity.setUpdatedAt(entity.getCreatedAt());
-            entity.setUser(guest.getUser());
+            // user comes from principal's backing user
+            if (principal.getUser() != null) {
+                entity.setUser(principal.getUser());
+            }
             entity.setChunkCount(0);
 
-            saved = sessionMemoryRepository.saveAndFlush(entity);
-            return saved.toDTO(HttpStatus.OK, saved.getScope(), "Saved Session Memory Successfully");
+            SessionMemoryEntity saved = sessionMemoryRepository.saveAndFlush(entity);
+            return saved.toDTO(HttpStatus.OK, saved.getScope(),
+                    "Saved Session Memory Successfully");
         } catch (DataIntegrityViolationException de) {
-            Optional<SessionMemoryEntity> seshMem = sessionMemoryRepository.findByPrincipalIdAndIdempotencyKey(principalId, idempotencyKey);
-            if (seshMem.isPresent()){
-                return seshMem.get().toDTO(HttpStatus.CONFLICT, request.scope(), "Cannot create a new session memory when one is recording");
+            // Idempotency: if a session already exists for this principal+key, return it
+            Optional<SessionMemoryEntity> existing =
+                    sessionMemoryRepository.findByPrincipalIdAndIdempotencyKey(principalId, idempotencyKey);
+
+            if (existing.isPresent()) {
+                SessionMemoryEntity session = existing.get();
+                return session.toDTO(
+                        HttpStatus.CONFLICT,
+                        session.getScope(),
+                        "Cannot create a new session memory when one is recording"
+                );
             }
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Something is wrong with the database: "+de);
+
+            log.error("Failed to save SessionMemoryEntity", de);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Unable to create session memory");
         }
     }
 
-    public SessionMemoryResponseDTO stopSessionMemory(UUID sessionId, PrincipalType principalType, String id) {
-        SessionMemoryEntity currentSession = sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(sessionId, principalType, id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Could not identify the session"
-                ));
+    /**
+     * Lookup a session by source conversation key for this principal.
+     */
+    public SessionMemoryResponseDTO getSessionBySourceConversation(PrincipalContext principal,
+                                                                   String sourceConversationKey) {
+        String principalId = principal.getPrincipalId().toString();
+        PrincipalType principalType = principal.getPrincipalType();
 
-        if (!currentSession.getPrincipalType().equals(principalType)
-                || !currentSession.getPrincipalId().equals(id)) {
+        Optional<SessionMemoryEntity> sessionMemoryEntity =
+                sessionMemoryRepository.findTopBySourceConversationAndPrincipalTypeAndPrincipalIdOrderByUpdatedAtDesc(
+                        sourceConversationKey,
+                        principalType,
+                        principalId
+                );
+
+        if (sessionMemoryEntity.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "No session found for this conversation");
+        }
+
+        SessionMemoryEntity entity = sessionMemoryEntity.get();
+        return entity.toDTO(HttpStatus.OK, entity.getScope(), "Found Source Conversation");
+    }
+
+    /**
+     * Internal helper used by MemoryService / QueryProcessingService
+     * to ensure a session belongs to this principal and is in the right state.
+     */
+    public SessionMemoryEntity getSessionPresent(UUID sessionId,
+                                                 PrincipalContext principal,
+                                                 boolean availabilityRequired) {
+        String principalId = principal.getPrincipalId().toString();
+        PrincipalType principalType = principal.getPrincipalType();
+
+        Optional<SessionMemoryEntity> sesh =
+                sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
+                        sessionId,
+                        principalType,
+                        principalId
+                );
+
+        if (sesh.isPresent()) {
+            SessionMemoryEntity session = sesh.get();
+            if (session.getSessionState() == SessionState.ACTIVE || !availabilityRequired) {
+                return session;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Updates the session chunk count
+     */
+    public SessionMemoryEntity updateChunkCount(SessionMemoryEntity sessionMemory, int amount) {
+        sessionMemory.setChunkCount(sessionMemory.getChunkCount()+amount);
+        return sessionMemoryRepository.save(sessionMemory);
+    }
+
+    // DEPRECATED METHODS
+
+    public SessionMemoryResponseDTO stopSessionState(UUID sessionId, PrincipalContext principal) {
+        SessionMemoryEntity currentSession = getSessionPresent(sessionId, principal, false);
+
+        if (!currentSession.getPrincipalType().equals(principal.getPrincipalType())
+                || !currentSession.getPrincipalId().equals(principal.getPrincipalId().toString())) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Principal cannot stop a session they do not own"
@@ -118,25 +178,11 @@ public class SessionService {
         return saved.toDTO(HttpStatus.OK, saved.getScope(),"Session memory stopped successfully");
     }
 
-
-    // PURE ENTITY RETRIEVAL FUNCTIONS BELOW
-
     public SessionMemoryResponseDTO findBySourceConversation(String key) {
         Optional<SessionMemoryEntity> sessionMemoryEntity = sessionMemoryRepository.findBySourceConversation(key);
         if (sessionMemoryEntity.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         return sessionMemoryEntity.get().toDTO(HttpStatus.OK, sessionMemoryEntity.get().getScope(), "Found Source Conversation");
-    }
-
-    public SessionMemoryEntity getSessionPresent(UUID sessionId, PrincipalType principalType, String id, boolean availabilityRequired) {
-        Optional<SessionMemoryEntity> sesh = sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(sessionId, principalType, id);
-        if (sesh.isPresent()) {
-            SessionMemoryEntity session = sesh.get();
-            if (session.getSessionState() == SessionState.ACTIVE || !availabilityRequired) {
-                return session;
-            }
-        }
-        return null;
     }
 }

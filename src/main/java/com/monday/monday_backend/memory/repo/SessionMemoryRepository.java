@@ -25,6 +25,12 @@ public interface SessionMemoryRepository extends JpaRepository<SessionMemoryEnti
             SessionState sessionState
     );
 
+    Optional<SessionMemoryEntity> findTopBySourceConversationAndPrincipalTypeAndPrincipalIdOrderByUpdatedAtDesc(
+            String sourceConversationKey,
+            PrincipalType principalType,
+            String principalId
+    );
+
     // Allows us to find by the "guest key"
     Optional<SessionMemoryEntity> findBySourceConversation(String sourceConversation);
 }

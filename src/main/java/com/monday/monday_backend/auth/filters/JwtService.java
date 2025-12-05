@@ -1,5 +1,7 @@
 package com.monday.monday_backend.auth.filters;
 
+import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
+import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
 import com.monday.monday_backend.auth.tokens.JwtUtil;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.tokens.TokensRepository;
@@ -12,10 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,11 +23,13 @@ public class JwtService {
     private final JwtUtil jwtUtil;
     private final TokensRepository tokensRepository;
     private final UserRepository userRepository;
+    private final UserCredentialsRepository userCredentialsRepository;
 
-    public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository) {
+    public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository, UserCredentialsRepository userCredentialsRepository) {
         this.jwtUtil = jwtUtil;
         this.tokensRepository = tokensRepository;
         this.userRepository = userRepository;
+        this.userCredentialsRepository = userCredentialsRepository;
     }
 
     /**
@@ -62,12 +63,15 @@ public class JwtService {
             return VerificationResponseDTO.successfulDTO(Map.of("token", tokensEntity.getToken(), "requestedRole", "GUEST"));
         }
 
-        Optional<UserEntity> findUser = userRepository.findByEmailAndPassword(verificationRequestDTO.email(), verificationRequestDTO.password());
+        Optional<UserEntity> findUser = userRepository.findByEmail(verificationRequestDTO.email());
         if (findUser.isEmpty()) {
             return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND.value(), "User not found or password incorrect");
         }
         UserEntity foundUser = findUser.get();
-        List<TokensEntity> tokensEntityList = foundUser.getTokensEntity();
+
+        UserCredentialsEntity userCreds = userCredentialsRepository.findByUser_UserId(foundUser.getUserId()).orElse(null);
+
+        List<TokensEntity> tokensEntityList = userCreds == null ? new ArrayList<>() : userCreds.getTokens();
         AccessLevel requestedRole = AccessLevel.valueOf(verificationRequestDTO.requestedRole());
         List<String> tokensAvailable = tokensEntityList.stream()
                 .filter(x-> !x.isExpired() && !x.isRevoked())
@@ -84,7 +88,7 @@ public class JwtService {
             TokensEntity tokensEntity = new TokensEntity();
             tokensEntity.setToken(createToken);
             tokensEntity.setServiceName(verificationRequestDTO.serviceName());
-            tokensEntity.setUser(foundUser);
+            tokensEntity.setUserCredentials(userCreds);
             tokensEntity.setAccessLevel(accessLevel);
             tokensEntity.setTimeCreated(Instant.now());
             tokensEntity.setExpired(false);

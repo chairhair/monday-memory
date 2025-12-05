@@ -1,6 +1,8 @@
 package com.monday.monday_backend.memory;
 
 import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.auth.principal.PrincipalContext;
+import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.auth.users.helper.PrincipalEntry;
 import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.monday_backend.memory.service.SessionService;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * "Hey, what just happened?" - This class
@@ -34,62 +37,65 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SessionMemoryController {
 
+    private final PrincipalResolver principalResolver;
     private final MemoryService memoryService;
     private final SessionService sessionService;    // Incorporated for quick Entity retrievals
 
     @PostMapping("/memory")
     public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
-        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null, null);
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "API not implemented yet");
     }
 
+    /**
+     * Start or reuse a session for the authenticated user.
+     * Idempotency is handled via the X-Idempotency-Key header.
+     */
     @PostMapping
     public SessionMemoryResponseDTO createSession(
             @AuthenticationPrincipal AuthUser authUser,
-            @RequestBody CreateSessionRequestDTO createRequestDTO) {
-        // When starting the createSession, we must first check if we have a topic.
-        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, createRequestDTO);
-        PrincipalType principalType = principalEntry.principalType();
-        String principalId = principalEntry.principalId();
+            @RequestBody CreateSessionRequestDTO createRequestDTO,
+            @RequestHeader(name = "X-Idempotency-Key", required = false)
+            String idempotencyKey) {
 
-        if (principalId == null && principalType == PrincipalType.USER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principalId must be provided!");
-        }
-        else if (createRequestDTO.topicName() != null && principalType == PrincipalType.GUEST) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can't assign session if guest has not registered");
+        PrincipalContext principal = principalResolver.fromAuthUser(authUser, createRequestDTO.sourceToGuestSource());
+
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            idempotencyKey = UUID.randomUUID().toString();
         }
 
-        SessionMemoryResponseDTO sessionMemoryResponseDTO = memoryService.upsertToSession(principalType, principalId, createRequestDTO);
-        if (createRequestDTO.topicName() != null && principalType == PrincipalType.USER) {
-            // Add latest info regarding our topic name and push session memory under it.
-            try {
-                memoryService.upsertToTopic(principalType, principalId, createRequestDTO.topicName(), sessionMemoryResponseDTO.sessionIds().getFirst());
-            } catch (Exception e) {
-                return sessionMemoryResponseDTO.updateStatus(HttpStatus.CONFLICT, "Could not update topic", sessionMemoryResponseDTO);
-            }
-        }
-        return sessionMemoryResponseDTO;
+        // Let SessionService own creation/upsert logic.
+        return sessionService.createOrReuseSession(principal, createRequestDTO, idempotencyKey);
     }
 
+    /**
+     * Append a memory chunk to an existing session for the authenticated user.
+     * This still uses the old MemoryService signature, but we derive
+     * principalType + principalId from PrincipalContext instead of PrincipalEntry.
+     */
     @PostMapping("/memory-chunk")
-    public ResponseMemoryChunkDTO createMemory(
+    public ResponseMemoryChunkDTO createMemoryChunk(
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody RequestMemoryChunkDTO memoryChunkDTO) {
-        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, memoryChunkDTO);
-        PrincipalType principalType = principalEntry.principalType();
-        String principalId = principalEntry.principalId();
 
-        return memoryService.appendMemoryChunk(principalType, principalId, memoryChunkDTO);
+        PrincipalContext principal = principalResolver.fromAuthUser(authUser, memoryChunkDTO.sourceToGuestSource());
+
+        return memoryService.recordOnly(
+                principal,
+                memoryChunkDTO
+        );
     }
 
     @PutMapping("/stop-session")
-    public SessionMemoryResponseDTO stopSession(@AuthenticationPrincipal AuthUser authUser,
-                                                  @RequestBody UpdateSessionRequestDTO updateRequestDTO) {
-        // When starting the updateSession, we must first check if we have a topic.
-        PrincipalEntry principalEntry = PrincipalEntry.authRetrieval(authUser, updateRequestDTO);
-        PrincipalType principalType = principalEntry.principalType();
-        String principalId = principalEntry.principalId();
+    public SessionMemoryResponseDTO stopSession(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestBody UpdateSessionRequestDTO updateRequestDTO) {
 
-        return memoryService.stopSessionState(principalType, principalId, updateRequestDTO);
+        PrincipalContext principal = principalResolver.fromAuthUser(authUser, updateRequestDTO.sourceToGuestSource());
+
+        return sessionService.stopSessionState(
+                UUID.fromString(updateRequestDTO.sessionId()),
+                principal
+        );
     }
 
     @PostMapping("/list")
@@ -100,13 +106,14 @@ public class SessionMemoryController {
 
     @DeleteMapping
     public boolean deleteMemory(@RequestParam List<String> sessionIds) {
-        return true;
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "API not implemented yet");
     }
 
     /**
      * Get by source conversation (used for if we don't have a good way to grab the information via principalId)
      * @return
      */
+    @Deprecated
     @GetMapping("/source-conversation/{key}")
     public SessionMemoryResponseDTO getSessionBySourceConversation(@PathVariable("key") String key) {
         return sessionService.findBySourceConversation(key);

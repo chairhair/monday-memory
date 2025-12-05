@@ -32,7 +32,7 @@ public class TopicService {
 
     @Transactional
     public SessionMemoryResponseDTO addSessionToTopic(String topicName, String userId, SessionMemoryEntity session) {
-        UserEntity user = userRepository.findById(UUID.fromString(userId)).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find our user"));
+        UserEntity user = userRepository.findByUserId(UUID.fromString(userId)).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find our user"));
 
         Optional<TopicMemoryEntity> findTopic = topicMemoryRepository.findByNameAndUser(topicName, user);
         TopicMemoryEntity foundTopic = null;

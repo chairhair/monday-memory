@@ -11,14 +11,13 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface UserPlanRepository extends JpaRepository<UserPlanEntity, Long> {
-    Optional<UserPlanEntity> findByUser_Id(Long userId);
+public interface UserPlanRepository extends JpaRepository<UserPlanEntity, UUID> {
+    Optional<UserPlanEntity> findByUser_UserId(UUID userId);
 
     Optional<UserPlanEntity> findByStripeCustomerId(String stripeCustomerId);
-
-    boolean existsByUserId(Long userId);
 
     // Optional: fast path to flip tier without fetching the row
     @Modifying(clearAutomatically = true, flushAutomatically = true)

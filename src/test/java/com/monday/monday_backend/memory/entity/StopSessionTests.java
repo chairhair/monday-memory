@@ -1,35 +1,34 @@
 package com.monday.monday_backend.memory.entity;
 
+import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.service.SessionService;
+import com.monday.shared.auth.utils.AccessLevel;
+import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
-import com.monday.shared.memory.session.dto.UpdateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
 import com.monday.shared.recording.RecordingScope;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
 class StopSessionTests {
 
     @Mock
@@ -38,11 +37,24 @@ class StopSessionTests {
     @InjectMocks
     private SessionService sessionService;
 
-    // Helper to build an entity; adjust to match your actual constructor/setters
+    // --- helpers ----------------------------------------------------------
+
+    private PrincipalContext guestContext() {
+        return PrincipalContext.builder()
+                .principalId(null)                // guest: using guestKey for principalId in entity
+                .principalType(PrincipalType.GUEST)
+                .accessLevel(AccessLevel.GUEST)
+                .plan(EffectivePlan.GUEST_FREE)
+                .quota(null)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .build();
+    }
+
     private SessionMemoryEntity buildSession(SessionState state,
-                                             Instant lastOccurredAt, Instant endedAt) {
+                                             Instant lastOccurredAt,
+                                             Instant endedAt) {
         SessionMemoryEntity entity = new SessionMemoryEntity();
-        // If you don't have setters, replace with builder / constructor you *do* have
         entity.setSource(SessionSource.DISCORD);
         entity.setSourceConversation("hawk-tuah-man");
         entity.setPrincipalType(PrincipalType.GUEST);
@@ -54,67 +66,58 @@ class StopSessionTests {
         entity.setEndedAt(endedAt);
         entity.setCreatedAt(Instant.now().minusSeconds(7200));
         entity.setUpdatedAt(Instant.now().minusSeconds(3600));
-        entity.setIdempotencyKey("test-idemp-key"); // initial value
+        entity.setIdempotencyKey("test-idemp-key");
         return entity;
     }
 
-    private UpdateSessionRequestDTO buildUpdateRequest(String sessionId) {
-        // Adjust ctor if your DTO is different
-        return new UpdateSessionRequestDTO(sessionId, "guest-key-123");
-    }
+    // --- tests ------------------------------------------------------------
 
     @Test
     void stopSession_activeSession_becomesStopped_andPersists() {
         // given
+        UUID sessionId = UUID.randomUUID();
+
         SessionMemoryEntity active = buildSession(
                 SessionState.ACTIVE,
                 Instant.now().minusSeconds(300),
                 null
         );
-        UUID generatedId = UUID.randomUUID();
-        String sessionId = generatedId.toString();
+        active.setSessionId(sessionId);
 
-        active.setSessionId(generatedId);
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
+                sessionId,
+                PrincipalType.GUEST,
+                "guest-key-123"
+        )).thenReturn(Optional.of(active));
 
-
-        when(sessionMemoryRepository.findById(sessionId))
-                .thenReturn(Optional.of(active));
-        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
-                .thenReturn(Optional.of(active));
         when(sessionMemoryRepository.save(any(SessionMemoryEntity.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
+        PrincipalContext ctx = guestContext();
 
         // when
-        SessionMemoryResponseDTO response = sessionService.stopSessionMemory(
-                PrincipalType.GUEST,
-                "guest-key-123",
-                dto
-        );
+        SessionMemoryResponseDTO response =
+                sessionService.stopSessionState(sessionId, ctx);
 
         // then
         ArgumentCaptor<SessionMemoryEntity> captor =
                 ArgumentCaptor.forClass(SessionMemoryEntity.class);
         verify(sessionMemoryRepository).save(captor.capture());
+
         SessionMemoryEntity saved = captor.getValue();
 
         Assertions.assertEquals(SessionState.STOPPED, saved.getSessionState(),
                 "Session state should transition to STOPPED");
         Assertions.assertNotNull(saved.getEndedAt(), "endedAt should be set when stopping");
-        Assertions.assertNotNull(saved.getUpdatedAt(), "updatedAt should be set when stopping");
+        Assertions.assertNotNull(saved.getUpdatedAt(), "updatedAt should be updated when stopping");
 
-        // If your toDTO() sets these fields, assert them too
         Assertions.assertEquals(HttpStatus.OK, response.statusCode());
-
-        sessionMemoryRepository.delete(active);
     }
 
     @Test
-    void stopSession_alreadyStopped_isIdempotent_andDoesNotResave() {
+    void stopSession_alreadyStopped_isIdempotent_orThrowsConflict() {
         // given
-        UUID generatedId = UUID.randomUUID();
-        String sessionId = generatedId.toString();
+        UUID sessionId = UUID.randomUUID();
 
         Instant originalEndedAt = Instant.now().minusSeconds(600);
         Instant originalUpdatedAt = Instant.now().minusSeconds(600);
@@ -124,52 +127,45 @@ class StopSessionTests {
                 Instant.now().minusSeconds(900),
                 originalEndedAt
         );
-        stopped.setSessionId(generatedId);
+        stopped.setSessionId(sessionId);
         stopped.setUpdatedAt(originalUpdatedAt);
 
-        when(sessionMemoryRepository.findById(sessionId))
-                .thenReturn(Optional.of(stopped));
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
+                sessionId,
+                PrincipalType.GUEST,
+                "guest-key-123"
+        )).thenReturn(Optional.of(stopped));
 
-        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
-                .thenReturn(Optional.of(stopped));
-
-        UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
+        PrincipalContext ctx = guestContext();
 
         // when
-        Executable exec = () -> sessionService.stopSessionMemory(
-                PrincipalType.GUEST,
-                "guest-key-123",
-                dto
-        );
+        Executable exec = () -> sessionService.stopSessionState(sessionId, ctx);
 
-        // then
+        // then – depending on semantics, adjust this section
+
         ResponseStatusException ex = Assertions.assertThrows(
                 ResponseStatusException.class,
-                exec
+                exec,
+                "Stopping an already STOPPED session should fail, not silently pass"
         );
-
+        Assertions.assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
     }
 
     @Test
     void stopSession_nonExistent_throwsNotFound() {
         // given
-        UUID generatedId = UUID.randomUUID();
-        String sessionId = generatedId.toString();
+        UUID sessionId = UUID.randomUUID();
 
-        when(sessionMemoryRepository.findById(sessionId))
-                .thenReturn(Optional.empty());
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
+                sessionId,
+                PrincipalType.GUEST,
+                "guest-key-123"
+        )).thenReturn(Optional.empty());
 
-        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
-                .thenReturn(Optional.empty());
-
-        UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
+        PrincipalContext ctx = guestContext();
 
         // when
-        Executable exec = () -> sessionService.stopSessionMemory(
-                PrincipalType.GUEST,
-                "guest-key-123",
-                dto
-        );
+        Executable exec = () -> sessionService.stopSessionState(sessionId, ctx);
 
         // then
         ResponseStatusException ex = Assertions.assertThrows(
@@ -182,38 +178,31 @@ class StopSessionTests {
     @Test
     void stopSession_invalidState_throwsConflict() {
         // given
-        UUID generatedId = UUID.randomUUID();
-        String sessionId = generatedId.toString();
+        UUID sessionId = UUID.randomUUID();
 
         SessionMemoryEntity expired = buildSession(
                 SessionState.EXPIRED,
                 Instant.now().minusSeconds(3600),
                 Instant.now().minusSeconds(1800)
         );
-        expired.setSessionId(generatedId);
+        expired.setSessionId(sessionId);
 
-        when(sessionMemoryRepository.findById(sessionId))
-                .thenReturn(Optional.of(expired));
+        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
+                sessionId,
+                PrincipalType.GUEST,
+                "guest-key-123"
+        )).thenReturn(Optional.of(expired));
 
-        when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(generatedId, PrincipalType.GUEST, "guest-key-123"))
-                .thenReturn(Optional.of(expired));
-
-        UpdateSessionRequestDTO dto = buildUpdateRequest(sessionId);
+        PrincipalContext ctx = guestContext();
 
         // when
-        Executable exec = () -> sessionService.stopSessionMemory(
-                PrincipalType.GUEST,
-                "guest-key-123",
-                dto
-        );
+        Executable exec = () -> sessionService.stopSessionState(sessionId, ctx);
 
         // then
         ResponseStatusException ex = Assertions.assertThrows(
                 ResponseStatusException.class,
                 exec
         );
-
-        // If you used CONFLICT (recommended), assert that
         Assertions.assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
     }
 }

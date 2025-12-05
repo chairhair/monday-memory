@@ -26,31 +26,33 @@ public class UserEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(columnDefinition = "id")
-    private UUID id;
+    @Column(name = "user_id", columnDefinition = "uuid")
+    private UUID userId;
 
     @Setter
     @Column(name = "email")
     private String email;
 
     @Setter
-    @Column(name = "password")
-    private String password;
+    @Column(name = "display_name")
+    private String displayName;
 
     @ManyToMany
     @JoinTable(
             name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"),
+            joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id")
     )
     private Set<RolesEntity> roles;
 
-    // For guest tokens
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TokensEntity> tokensEntity;
-
+    @Setter
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private UserPlanEntity userPlan;
+
+    @Setter
+    @Column
+    private boolean linked;
+
 
     @Column(nullable = false)
     private Instant createdAt;

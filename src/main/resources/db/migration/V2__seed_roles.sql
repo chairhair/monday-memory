@@ -1,17 +1,13 @@
 -- V2__seed_roles.sql
 
 INSERT INTO role_entity (access_level)
-VALUES ('GUEST')
-ON CONFLICT (access_level) DO NOTHING;
+VALUES ('GUEST');
 
 INSERT INTO role_entity (access_level)
-VALUES ('USER')
-ON CONFLICT (access_level) DO NOTHING;
+VALUES ('USER');
 
 INSERT INTO role_entity (access_level)
-VALUES ('ADMIN')
-ON CONFLICT (access_level) DO NOTHING;
+VALUES ('ADMIN');
 
 INSERT INTO role_entity (access_level)
-VALUES ('PRO')
-ON CONFLICT (access_level) DO NOTHING;
+VALUES ('PRO');

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Getter
 @Table(
@@ -21,8 +22,9 @@ import java.time.Instant;
 public class UserPlanEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid")
+    UUID id;
 
     @Setter
     @OneToOne(fetch = FetchType.LAZY, optional = false)
@@ -50,6 +52,22 @@ public class UserPlanEntity {
     @Setter
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Setter
+    @Column(name = "period_start")
+    private Instant periodStart;
+
+    @Setter
+    @Column(name = "period_end")
+    private Instant periodEnd;
+
+    @Setter
+    @Column(name = "topics_used")
+    private Integer topicsUsed;
+
+    @Setter
+    @Column(name = "tokens_used")
+    private Long tokensUsed;
 
     @Version
     private Long version;

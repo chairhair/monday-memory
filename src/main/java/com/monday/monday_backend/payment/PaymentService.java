@@ -13,6 +13,8 @@ import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 
 @Service
 @RequiredArgsConstructor
@@ -24,11 +26,11 @@ public class PaymentService implements PaymentProvider {
     private final PricePlanRepository pricePlanRepository;
 
     @Override
-    public StartCheckoutResponseDTO createSubscriptionCheckout(Long userId, String pricePlan, String successUrl, String cancelUrl) throws RuntimeException, StripeException {
+    public StartCheckoutResponseDTO createSubscriptionCheckout(UUID userId, String pricePlan, String successUrl, String cancelUrl) throws RuntimeException, StripeException {
 
         UserPlanEntity userPlan = null;
         if (userId != null) {
-            userPlan = userPlanRepository.findByUser_Id(userId).orElseThrow(() -> new IllegalArgumentException("User not found!"));
+            userPlan = userPlanRepository.findByUser_UserId(userId).orElseThrow(() -> new IllegalArgumentException("User not found!"));
         }
 
         PricePlanEntity pricePlanEntity = pricePlanRepository.findByCode(pricePlan).orElseThrow(() -> new IllegalArgumentException("Cannot find price plan: "+pricePlan));

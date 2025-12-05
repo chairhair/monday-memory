@@ -24,6 +24,7 @@ public class RolesEntity {
 
     @Setter
     @Enumerated(EnumType.STRING)
+    @Column(name = "access_level")
     private AccessLevel accessLevel;
 
     @Setter

@@ -1,23 +1,19 @@
 package com.monday.monday_backend.auth.guests;
 
-import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.monday_backend.auth.users.UserRepository;
-import com.monday.monday_backend.communication.entity.UserExternalAccount;
-import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
+import com.monday.monday_backend.payment.PlanDefaultsService;
+import com.monday.monday_backend.payment.entity.UserPlanEntity;
+import com.monday.monday_backend.payment.repo.UserPlanRepository;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.session.utils.GuestSource;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.util.Optional;
+import java.util.UUID;
 
 
 @Service
@@ -26,91 +22,105 @@ public class GuestService {
 
     private final GuestRepository guestRepository;
     private final UserRepository userRepository;
-    private final UserExternalAccountRepository externalAccountRepository;
-    private final RolesRepository rolesRepository;
-    private final Clock clock;
+    private final UserPlanRepository userPlanRepository;
+    private final RolesRepository rolesRepository; // for default role
+    private final PlanDefaultsService planDefaultsService; // default free/guest plans
 
-    @Transactional(readOnly = true)
-    public GuestEntity resolveGuest(String guestKey, GuestSource source) {
-        String normalizedKey = guestKey.trim();
-
-        // 1) Fast path: guest already exists
-        Optional<GuestEntity> existing =
-                guestRepository.findByGuestKeyAndSource(normalizedKey, source);
-
-        if (existing.isPresent()) {
-            GuestEntity guest = existing.get();
-            guest.setLastSeenAt(Instant.now(clock));
-            // optional: no need to flush each time, JPA will track
-            return guest;
-        }
-        return null;
-    }
-
-    @Transactional(readOnly = true)
-    public String resolveGuestId(String guestKey, GuestSource source) {
-        GuestEntity guest = resolveGuest(guestKey, source);
-        return guest == null ? null : guest.getGuestId().toString();
+    @Transactional
+    public GuestEntity getOrCreateGuest(String guestKey, GuestSource source) {
+        return guestRepository.findByGuestKeyAndSource(guestKey, source)
+                .map(this::touchGuestAndReturn)
+                .orElseGet(() -> createNewGuestWithShadowUser(guestKey, source));
     }
 
     @Transactional
-    public String resolveOrCreateGuestId(String guestKey, GuestSource source) {
-        String guestId = resolveGuestId(guestKey, source);
-
-        if (guestId != null) {
-            return guestId;
-        }
-
-        // 2) Create a new guest
-
-        // It must be created as an actual user prior to saving it. This is because...
-        // - It allows us to immediately pinpoint the user associated with this account.
-        // - We can more easily pull roles afterward
-        Optional<RolesEntity> guestAccessLevel = rolesRepository.findByAccessLevel(AccessLevel.GUEST);
-        if (guestAccessLevel.isEmpty()) {
-            throw new RuntimeException("There's an issue with using the guest role");
-        }
-        Instant now = Instant.now(clock);
-        UserEntity guestUser = new UserEntity();
-        guestUser.setPassword(null);
-        guestUser.setEmail(null);
-        guestUser.addRole(guestAccessLevel.get());
-        try {
-            guestUser = userRepository.save(guestUser);
-        } catch (DataIntegrityViolationException dVE) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot save latest guest user account: "+dVE);
-        }
-        UserExternalAccount assignUserExternalAccount = new UserExternalAccount();
-        assignUserExternalAccount.setCreatedAt(now);
-        assignUserExternalAccount.setExternalId(guestId);
-        assignUserExternalAccount.setUser(guestUser);
-        try {
-            externalAccountRepository.save(assignUserExternalAccount);
-        } catch (DataIntegrityViolationException dVE) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot make a new external user account: "+dVE);
-        }
-
-        GuestEntity newGuest = new GuestEntity();
-        newGuest.setGuestKey(guestKey.trim());
-        newGuest.setSource(source);
-        newGuest.setUser(guestUser);
-        newGuest.setCreatedAt(now);
-        newGuest.setLastSeenAt(now);
-
-        try {
-            GuestEntity saved = guestRepository.saveAndFlush(newGuest);
-            return saved.getGuestId().toString();
-        } catch (DataIntegrityViolationException e) {
-            // 3) Race condition: someone else just created it
-            Optional<GuestEntity> winner =
-                    guestRepository.findByGuestKeyAndSource(guestKey.trim(), source);
-
-            if (winner.isPresent()) {
-                return winner.get().getGuestId().toString();
-            }
-
-            throw e; // if it’s still not there, something else really broke
-        }
+    public GuestEntity getOrCreateGuestForUser(UserEntity user, GuestSource source) {
+        return guestRepository.findByUserAndSource(user, source)
+                .map(this::touchGuestAndReturn)
+                .orElseGet(() -> createNewGuestForExistingUser(user, source));
     }
 
+    @Transactional
+    public GuestEntity linkGuestToUser(GuestEntity guest, UserEntity realUser) {
+        // If the guest was previously linked to a shadow user, you can optionally
+        // merge or drop that shadow user here. For MVP: just re-point.
+        guest.setUser(realUser);
+        guest.setLastSeenAt(Instant.now());
+        return guestRepository.save(guest);
+    }
+
+    @Transactional
+    public void touchGuest(GuestEntity guest) {
+        guest.setLastSeenAt(Instant.now());
+        guestRepository.save(guest);
+    }
+
+    // ----------------- internal helpers -----------------
+
+    private GuestEntity touchGuestAndReturn(GuestEntity guest) {
+        guest.setLastSeenAt(Instant.now());
+        return guestRepository.save(guest);
+    }
+
+    private GuestEntity createNewGuestWithShadowUser(String guestKey, GuestSource source) {
+        // 1) Create a "shadow" user with default free/guest plan
+        UserEntity user = createShadowUser();
+
+        // 2) Create guest bound to that user
+        GuestEntity guest = new GuestEntity();
+        guest.setGuestKey(guestKey);
+        guest.setSource(source);
+        guest.setUser(user);
+
+        Instant now = Instant.now();
+        guest.setCreatedAt(now);
+        guest.setLastSeenAt(now);
+
+        return guestRepository.save(guest);
+    }
+
+    private GuestEntity createNewGuestForExistingUser(UserEntity user, GuestSource source) {
+        GuestEntity guest = new GuestEntity();
+        guest.setGuestKey(generateGuestKeyForUser(user, source));
+        guest.setSource(source);
+        guest.setUser(user);
+
+        Instant now = Instant.now();
+        guest.setCreatedAt(now);
+        guest.setLastSeenAt(now);
+
+        return guestRepository.save(guest);
+    }
+
+    private UserEntity createShadowUser() {
+        UserEntity user = new UserEntity();
+
+        user.setEmail(null); // not linked yet
+        user.setLinked(false);
+
+        // default role(s) – use whatever fits your role model
+        var defaultRole = rolesRepository.findByAccessLevel(AccessLevel.USER)
+                .orElseThrow(() -> new IllegalStateException("Default USER role not found"));
+        user.addRole(defaultRole); // or setRoles(Set.of(defaultRole))
+
+        // Plan: default guest/free plan
+        UserPlanEntity userPlan = new UserPlanEntity();
+        userPlan.setPlan(planDefaultsService.getDefaultGuestPlan().getPlan());
+        userPlan.setUser(user);
+        userPlan.setTopicsUsed(0);
+        userPlan.setTokensUsed(0L);
+        // periodStart/End can be set in a PlanPeriodService if you have one
+
+        user.setUserPlan(userPlan);
+
+        userRepository.save(user);
+        userPlanRepository.save(userPlan);
+
+        return user;
+    }
+
+    private String generateGuestKeyForUser(UserEntity user, GuestSource source) {
+        // For web/extension you might derive it; for now a random UUID is fine.
+        return UUID.randomUUID().toString();
+    }
 }

@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -108,11 +109,11 @@ public class BillingService {
         setTier(resolveUserIdFromCustomer(customerId), pricePlanEntity, customerId, sub.getId(), periodEnd);
     }
 
-    private void upsertPro(Long userId, String subId, String customerId, Instant periodEnd, PricePlanEntity pricePlanEntity) {
+    private void upsertPro(UUID userId, String subId, String customerId, Instant periodEnd, PricePlanEntity pricePlanEntity) {
 
-        UserPlanEntity userPlan = userPlanRepository.findByUser_Id(userId).orElseGet(() -> {
+        UserPlanEntity userPlan = userPlanRepository.findByUser_UserId(userId).orElseGet(() -> {
             UserPlanEntity p = new UserPlanEntity();
-            p.setUser(userRepository.getReferenceById(userId)); p.setPlan(pricePlanEntity);
+            p.setUser(userRepository.findByUserId(userId).orElseThrow(()->new RuntimeException("User Id Doesn't exist!"))); p.setPlan(pricePlanEntity);
             p.setUpdatedAt(Instant.now());
             return p;
         });
@@ -124,8 +125,8 @@ public class BillingService {
         userPlanRepository.save(userPlan);
     }
 
-    private void setTier(Long userId, PricePlanEntity tier, String cust, String sub, Instant periodEnd) {
-        userPlanRepository.findByUser_Id(userId).ifPresent(plan -> {
+    private void setTier(UUID userId, PricePlanEntity tier, String cust, String sub, Instant periodEnd) {
+        userPlanRepository.findByUser_UserId(userId).ifPresent(plan -> {
             plan.setPlan(tier);
             plan.setStripeCustomerId(cust);
             plan.setStripeSubscriptionId(sub);
@@ -135,7 +136,7 @@ public class BillingService {
         });
     }
 
-    private Long resolveUserIdFromCustomer(String customerId) {
+    private UUID resolveUserIdFromCustomer(String customerId) {
         return userPlanRepository.findByStripeCustomerId(customerId)
                 .map(UserPlanEntity::getId)
                 .orElse(null);

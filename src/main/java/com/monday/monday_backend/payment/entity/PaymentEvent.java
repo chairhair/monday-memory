@@ -14,7 +14,7 @@ public class PaymentEvent {
     long id;
 
     @Setter
-    @Column(nullable=false)
+    @Column(columnDefinition = "user_id", nullable=false)
     String userId;
 
     @Setter

@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.tokens;
 
+import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
 import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.shared.auth.utils.AccessLevel;
 import jakarta.persistence.*;
@@ -17,6 +18,11 @@ public class TokensEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
+
+    @Setter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_credentials_id")
+    private UserCredentialsEntity userCredentials;
 
     @Setter
     @Column(nullable = false)
@@ -39,9 +45,4 @@ public class TokensEntity {
 
     @Setter
     private boolean revoked;
-
-    @Setter
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = true)
-    private UserEntity user;
 }

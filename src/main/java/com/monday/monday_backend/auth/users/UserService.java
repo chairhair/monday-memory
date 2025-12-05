@@ -1,5 +1,7 @@
 package com.monday.monday_backend.auth.users;
 
+import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
+import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
@@ -34,6 +36,7 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
     private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
@@ -54,18 +57,21 @@ public class UserService {
 
         if (existing != null) {
             Optional<UserEntity> potentialDuplicates = userRepository.findByEmail(dto.emailAddress());
-            if (potentialDuplicates.isPresent() && potentialDuplicates.get().getId() != existing.getId()) {
+            if (potentialDuplicates.isPresent() && potentialDuplicates.get().getUserId() != existing.getUserId()) {
                 return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email already found.");
             }
             if (!existing.getEmail().equals(dto.emailAddress())) {
                 existing.setEmail(dto.emailAddress());
             }
-            if (!passwordEncoder.matches(dto.password(), existing.getPassword())) {
-                existing.setPassword(passwordEncoder.encode(dto.password()));
-            }
             UserEntity userEntity = userRepository.save(existing);
+
+            // Now we have to pass in the user credentials
+            UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(existing.getUserId()).orElse(new UserCredentialsEntity());
+            if (!passwordEncoder.matches(dto.password(), userCredentials.getPassword())) {
+                userCredentials.setPassword(passwordEncoder.encode(dto.password()));
+            }
             Set<AccessLevel> rolesPresent = existing.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet());
-            Set<String> tokensList = existing.getTokensEntity().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
+            Set<String> tokensList = userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
             return UserResponseDTO.successfulDTO(userEntity.getEmail(), rolesPresent, tokensList);
         }
 
@@ -85,11 +91,15 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponseDTO> retrieveUsers(UserSearchRequestDTO userSearchRequestDTO) {
         Page<UserEntity> userPage = userRepository.findByIdIn(userSearchRequestDTO.userIds(), userSearchRequestDTO.toPageable());
-        return userPage.get().map(user -> UserResponseDTO.successfulDTO(
+
+        return userPage.get().map(user -> {
+            UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
+            Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
+            return UserResponseDTO.successfulDTO(
                 user.getEmail(),
                 user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()),
-                user.getTokensEntity().stream().map(TokensEntity::getToken).collect(Collectors.toSet())))
-                .collect(Collectors.toList());
+                tokens);
+        }).collect(Collectors.toList());
     }
 
     @Transactional
@@ -125,7 +135,9 @@ public class UserService {
             }
             return UserResponseDTO.successfulDTO(null, Set.of(AccessLevel.GUEST), null);
         }
-        return UserResponseDTO.successfulDTO(user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), user.getTokensEntity().stream().map(TokensEntity::getToken).collect(Collectors.toSet()));
+        UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
+        Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
+        return UserResponseDTO.successfulDTO(user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), tokens);
     }
 
 
@@ -133,7 +145,6 @@ public class UserService {
         UserEntity user = new UserEntity();
         user.addRole(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
         user.setEmail(null);
-        user.setPassword(null);
         userRepository.save(user);
         return user;
     }

@@ -40,4 +40,5 @@ public class UserController {
     public UserResponseDTO login(@RequestBody ExternalLoginRequestDTO externalRequestDTO) {
         return userService.loginUser(externalRequestDTO);
     }
+
 }

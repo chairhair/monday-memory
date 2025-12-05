@@ -1,11 +1,13 @@
 package com.monday.monday_backend.memory.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -16,21 +18,18 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
-
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MemoryChunkUtils {
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * Convert a MemoryChunkEntity into a ResponseMemoryChunkDTO for API responses.
+     */
     public ResponseMemoryChunkDTO toDto(MemoryChunkEntity entity) {
-        String contentJson = null;
-        try {
-            contentJson = objectMapper.writeValueAsString(entity.getContent());
-        } catch (JsonProcessingException e) {
-            // up to you: wrap in runtime, log, or fallback
-            throw new IllegalStateException("Failed to serialize memory chunk content", e);
-        }
+        String contentJson = toJson(entity.getContent());
 
         return new ResponseMemoryChunkDTO(
                 contentJson,
@@ -41,10 +40,13 @@ public class MemoryChunkUtils {
         );
     }
 
+    /**
+     * Build a MemoryChunkEntity for a *user* message in a chat-like interaction.
+     */
     public MemoryChunkEntity forUserMessage(
             SessionMemoryEntity session,
             String text,
-            String source                  // "query_api", "discord", etc.
+            String source // e.g. "DISCORD", "QUERY_API"
     ) {
         MemoryChunkEntity chunk = new MemoryChunkEntity();
         Instant now = Instant.now();
@@ -54,16 +56,16 @@ public class MemoryChunkUtils {
         chunk.setIngestedAt(now);
 
         chunk.setTags(List.of(
-            "kind:chat_message",
-            "role:user",
-            "source:" + source
+                "kind:chat_message",
+                "role:user",
+                "source:" + source
         ));
 
         chunk.setContent(Map.of(
-        "kind", "chat_message",
-        "role", "user",
-        "text", text,
-        "source", source
+                "kind", "chat_message",
+                "role", "user",
+                "text", text,
+                "source", source
         ));
 
         String normalized = normalize(text);
@@ -71,10 +73,13 @@ public class MemoryChunkUtils {
         return chunk;
     }
 
+    /**
+     * Build a MemoryChunkEntity for an *assistant* message in a chat-like interaction.
+     */
     public MemoryChunkEntity forAssistantMessage(
             SessionMemoryEntity session,
             String text,
-            String source
+            String source // e.g. "DISCORD", "QUERY_API"
     ) {
         MemoryChunkEntity chunk = new MemoryChunkEntity();
         Instant now = Instant.now();
@@ -102,16 +107,108 @@ public class MemoryChunkUtils {
     }
 
     /**
+     * Serialize arbitrary content to JSON using the shared ObjectMapper.
+     * This is used by both DTO mapping and any other place that needs
+     * a JSON string from the chunk content.
+     */
+    public String toJson(Object content) {
+        if (content == null) {
+            return "null";
+        }
+        try {
+            return objectMapper.writeValueAsString(content);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize memory chunk content: {}", content, e);
+            throw new IllegalStateException("Failed to serialize memory chunk content", e);
+        }
+    }
+
+    /**
+     * Build a textual context summary from a list of recent chunks,
+     * suitable for dropping into the LLM system prompt.
+     *
+     * Expected (but not strictly required) content shape per chunk:
+     *   {
+     *      "kind": "chat_message",
+     *      "role": "user" | "assistant",
+     *      "text": "some text",
+     *      "source": "DISCORD" | "QUERY_API" | ...
+     *   }
+     *
+     * If the structure is different, we fall back to JSON for that chunk.
+     */
+    public String buildContext(List<MemoryChunkEntity> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return "No prior context.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        // We assume caller is already giving us "most recent first" (e.g. ORDER BY occurredAt DESC).
+        // We'll keep that order, top to bottom, so the LLM sees recent stuff first.
+        for (MemoryChunkEntity chunk : chunks) {
+            String line = renderChunkForContext(chunk);
+            if (!line.isBlank()) {
+                sb.append(line).append("\n");
+            }
+        }
+
+        return sb.toString().trim();
+    }
+
+    // ----------------- internal helpers -----------------
+
+    private String renderChunkForContext(MemoryChunkEntity chunk) {
+        Object rawContent = chunk.getContent();
+
+        Map<String, Object> map = null;
+        if (rawContent instanceof Map<?, ?> m) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cast = (Map<String, Object>) m;
+            map = cast;
+        } else if (rawContent instanceof String s) {
+            // Try to parse JSON string back to a map; if it fails, just return the raw string.
+            try {
+                map = objectMapper.readValue(s, new TypeReference<Map<String, Object>>() {});
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to parse chunk content JSON, falling back to raw string: {}", s, e);
+                return s;
+            }
+        }
+
+        if (map == null) {
+            // Unknown content type; last-resort JSON
+            return toJson(rawContent);
+        }
+
+        Object roleObj = map.get("role");
+        Object textObj = map.get("text");
+
+        String role = roleObj != null ? roleObj.toString() : "unknown";
+        String text;
+
+        if (textObj != null) {
+            text = textObj.toString();
+        } else {
+            // If there's no "text" field, just dump the whole map
+            text = toJson(map);
+        }
+
+        // You can include timestamps if you want; for now we keep it simple.
+        return role + ": " + text;
+    }
+
+    /**
      * Normalize text so hashing is deterministic and resilient to whitespace noise:
-     * - Trim leading/trailing whitespace
-     * - Collapse repeated whitespace into a single space
-     * - Preserve punctuation/case (important for context relevance)
+     *  - Trim leading/trailing whitespace
+     *  - Collapse repeated whitespace into a single space
+     *  - Preserve punctuation/case
      */
     private String normalize(String text) {
         if (text == null) return "";
         return text
                 .trim()
-                .replaceAll("\\s+", " "); // collapse all whitespace runs
+                .replaceAll("\\s+", " ");
     }
 
     /**
@@ -127,4 +224,3 @@ public class MemoryChunkUtils {
         }
     }
 }
-
