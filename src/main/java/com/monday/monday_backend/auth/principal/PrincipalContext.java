@@ -7,6 +7,7 @@ import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.llm.RecallScope;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaSnapshot;
+import com.monday.shared.memory.session.utils.GuestSource;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.recording.RecordingScope;
 import lombok.Builder;
@@ -23,7 +24,7 @@ public class PrincipalContext {
     UserEntity user;            // may be null for “pure guest”, or always non-null if you prefer
     UserPlanEntity userPlan;
 
-    UUID principalId;           // the ID you pass into MemoryService today
+    UUID principalId;           // the permanent ID you pass into MemoryService today
     PrincipalType principalType;// whatever enum you’re using now: GUEST, USER, etc.
 
     // Auth / roles
@@ -36,6 +37,9 @@ public class PrincipalContext {
     // Optional scopes the context can take on.
     RecordingScope recordingScope;
     RecallScope recallScope;
+
+    String externalGuestKey;    // External Key associated when there is no principal Id
+    GuestSource source;         // Where the conversation originated.
 
     public boolean isPro() {
         return plan == EffectivePlan.USER_PRO;

@@ -10,6 +10,7 @@ import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaSnapshot;
+import com.monday.shared.memory.session.GuestHandle;
 import com.monday.shared.memory.session.utils.GuestSource;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,17 @@ public class PrincipalResolver {
     private final PlanDefaultsService planDefaultsService;
     private final AccessLevelResolver accessLevelResolver;
     private final QuotaService quotaService;
+
+
+    /**
+     * Chooses what to resolve to dependent on if we're a GUEST, USER, etc.
+     */
+    public PrincipalContext resolve(AuthUser authUser, GuestHandle guestHandle) {
+        if (authUser == null) {
+            return fromGuest(guestHandle.guestKey(), guestHandle.guestSource());
+        }
+        return fromAuthUser(authUser, guestHandle.guestSource());
+    }
 
     /**
      * For Discord / anonymous flows – this is what QueryGuestController should use

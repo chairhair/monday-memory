@@ -1,6 +1,8 @@
 package com.monday.monday_backend.memory.entity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.monday.monday_backend.auth.guests.GuestEntity;
+import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.memory.service.MemoryService;
@@ -46,7 +48,7 @@ public class CreateSessionTests extends JwksTestSupport {
     ObjectMapper mapper;
 
     @MockBean
-    MemoryService memoryService;
+    GuestService guestService;
 
     @MockBean
     SessionService sessionService;
@@ -55,7 +57,7 @@ public class CreateSessionTests extends JwksTestSupport {
     PrincipalResolver principalResolver;
 
     @Test
-    void withoutHeaders_createsSession_usingGuestPrincipal() throws Exception {
+    void createsSession_usingGuestPrincipal_noAuthUser() throws Exception {
         // Client doesn’t send principalType/principalId anymore.
         // It just sends guestKey + source info.
         CreateSessionRequestDTO requestBody =
@@ -77,12 +79,12 @@ public class CreateSessionTests extends JwksTestSupport {
                 .recallScope(null)
                 .build();
 
-        when(principalResolver.fromGuest(any(), any())).thenReturn(guestContext);
+        when(principalResolver.resolve(any(), any())).thenReturn(guestContext);
 
         when(sessionService.createOrReuseSession(
                 any(PrincipalContext.class),
                 any(CreateSessionRequestDTO.class),
-                null)
+                anyString())
         ).thenReturn(
                 new SessionMemoryResponseDTO(
                         HttpStatus.OK,
@@ -92,6 +94,7 @@ public class CreateSessionTests extends JwksTestSupport {
                         null,
                         0,
                         "guest-key-123",
+                        null,
                         null
                 )
         );
@@ -108,6 +111,9 @@ public class CreateSessionTests extends JwksTestSupport {
                         .content(mapper.writeValueAsString(requestBody)))
                 .andExpect(status().isOk());
 
+        // Verify we can get the guest
+        verify(principalResolver).resolve(any(), any());
+
         // Verify we routed correctly and constructed args correctly
         verify(sessionService).createOrReuseSession(
                 principalContextCaptor.capture(),
@@ -115,6 +121,13 @@ public class CreateSessionTests extends JwksTestSupport {
                 idempotencyKeyCaptor.capture()
         );
 
+        Assertions.assertNotNull(
+                principalContextCaptor.getValue(),
+                "PrincipalContext passed to sessionService should not be null"
+        );
+
+        PrincipalContext ctx = principalContextCaptor.getValue();
+        System.out.println("Captured PrincipalContext: " + ctx);
         // Assert principal was derived as guest
         Assertions.assertEquals(PrincipalType.GUEST, principalContextCaptor.getValue().getPrincipalType());
 

@@ -57,7 +57,7 @@ public class SessionMemoryController {
             @RequestHeader(name = "X-Idempotency-Key", required = false)
             String idempotencyKey) {
 
-        PrincipalContext principal = principalResolver.fromAuthUser(authUser, createRequestDTO.sourceToGuestSource());
+        PrincipalContext principal = principalResolver.resolve(authUser, createRequestDTO.toGuestHandle());
 
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             idempotencyKey = UUID.randomUUID().toString();
@@ -77,7 +77,7 @@ public class SessionMemoryController {
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody RequestMemoryChunkDTO memoryChunkDTO) {
 
-        PrincipalContext principal = principalResolver.fromAuthUser(authUser, memoryChunkDTO.sourceToGuestSource());
+        PrincipalContext principal = principalResolver.resolve(authUser, memoryChunkDTO.toGuestHandle());
 
         return memoryService.recordOnly(
                 principal,
@@ -90,7 +90,7 @@ public class SessionMemoryController {
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody UpdateSessionRequestDTO updateRequestDTO) {
 
-        PrincipalContext principal = principalResolver.fromAuthUser(authUser, updateRequestDTO.sourceToGuestSource());
+        PrincipalContext principal = principalResolver.resolve(authUser, updateRequestDTO.toGuestHandle());
 
         return sessionService.stopSessionState(
                 UUID.fromString(updateRequestDTO.sessionId()),
@@ -101,7 +101,7 @@ public class SessionMemoryController {
     @PostMapping("/list")
     public SessionMemoryResponseDTO getMemoryList(
             @RequestBody SessionMemoryFilterRequestDTO sessionMemoryFilterRequestDTO) {
-        return new SessionMemoryResponseDTO(HttpStatus.ACCEPTED, null, null, null, null, null, null, null);
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "API not implemented yet");
     }
 
     @DeleteMapping

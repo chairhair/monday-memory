@@ -21,6 +21,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -69,7 +71,9 @@ public class DevBypassPaymentTests extends JwksTestSupport {
     @Test
     void canCreateUserSubscriptionCheckout() throws Exception {
 
-        Mockito.when(paymentService.createSubscriptionCheckout(123L, "PRO_MONTHLY",
+        UUID userId = UUID.randomUUID();
+
+        Mockito.when(paymentService.createSubscriptionCheckout(userId, "PRO_MONTHLY",
                         "https://app/success", "https://app/cancel"))
                 .thenReturn(new StartCheckoutResponseDTO("https://checkout", "cs_123"));
 
@@ -80,7 +84,7 @@ public class DevBypassPaymentTests extends JwksTestSupport {
                 .andDo(print())
                 .andExpect(status().isOk());
 
-        verify(paymentService).createSubscriptionCheckout(123L,"PRO_MONTHLY","https://app/success","https://app/cancel");
+        verify(paymentService).createSubscriptionCheckout(userId,"PRO_MONTHLY","https://app/success","https://app/cancel");
     }
 
     @Test

@@ -106,10 +106,10 @@ public class SessionMemoryEntity {
     private long version;                  // optimistic updates on counters
 
     public SessionMemoryResponseDTO toDTO(int statusCode, String message) {
-        return new SessionMemoryResponseDTO(HttpStatus.valueOf(statusCode), scope, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
+        return new SessionMemoryResponseDTO(HttpStatus.valueOf(statusCode), scope, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null, idempotencyKey);
     }
 
     public SessionMemoryResponseDTO toDTO(HttpStatus statusCode, RecordingScope scope, String message) {
-        return new SessionMemoryResponseDTO(statusCode, scope, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null);
+        return new SessionMemoryResponseDTO(statusCode, scope, message, Collections.singletonList(sessionId.toString()), null, null, this.principalId, null, idempotencyKey);
     }
 }
