@@ -6,8 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface MemoryChunkRepository extends JpaRepository<MemoryChunkEntity, String> {
+public interface MemoryChunkRepository extends JpaRepository<MemoryChunkEntity, UUID> {
     List<MemoryChunkEntity> findTop5BySessionOrderByOccurredAtDesc(SessionMemoryEntity sessionMemoryEntity);
 }
