@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -40,8 +41,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -84,12 +84,13 @@ public class MemoryServiceTests {
         return chunk;
     }
 
+    // NOTE: Works as anticipated
     @Test
     void appendChunk_happyPath() {
         // Creates memory chunk that's present under our Session Memory Controller
         QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
                 .topicsUsed(0)
-                .tokenLimit(0)
+                .tokensUsed(0)
                 .topicLimit(100)
                 .tokenLimit(10000L)
                 .build();
@@ -176,23 +177,210 @@ public class MemoryServiceTests {
     }
 
     @Test
-    void appendChunk_wrongPrincipal_forbidden() {
+    void appendChunk_wrongPrincipal_throwsForbidden() {
+        // Arrange
+        QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
+                .topicsUsed(0)
+                .tokenLimit(0)
+                .topicLimit(100)
+                .tokenLimit(10000L)
+                .build();
 
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        RequestMemoryChunkDTO dto = new RequestMemoryChunkDTO(
+                sessionId,
+                PrincipalType.GUEST,
+                principalId.toString(),
+                "hawk-tauh-man",
+                SessionSource.DISCORD,
+                "hawk-tauh-man",
+                "Hello, this is a test message",
+                Instant.now(),
+                null
+        );
+
+        PrincipalContext guestContext = PrincipalContext.builder()
+                .principalId(principalId)                        // ✅ NON-NULL
+                .principalType(PrincipalType.USER)
+                .accessLevel(AccessLevel.USER)
+                .plan(EffectivePlan.USER_FREE)
+                .quota(quotaSnapshot)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .externalGuestKey("hawk-tuah-man")
+                .build();
+//        TODO: Set options when entity exists.
+//        SessionOptions options = new SessionOptions();
+//        options.setScope(SessionScope.CHANNEL);
+//        options.setMaxChunksPerSession(10);
+
+        SessionMemoryEntity session = new SessionMemoryEntity();
+        session.setSessionId(sessionId);
+        session.setPrincipalType(PrincipalType.USER);
+        session.setPrincipalId("user-123");
+        session.setSessionState(SessionState.ACTIVE);
+        session.setChunkCount(0);
+//        session.setOptions(options);
+
+        Instant now = Instant.parse("2025-12-06T12:00:00Z");
+
+        when(sessionMemoryRepository
+                .findBySessionIdAndPrincipalTypeAndPrincipalId(
+                        sessionId,
+                        PrincipalType.GUEST,
+                        principalId.toString()))
+                .thenReturn(Optional.of(session));
+
+        // Act + Assert
+        Assertions.assertThrows(ResponseStatusException.class, () -> {
+            memoryService.recordOnly(guestContext, dto);
+        });
+
+        // Ensure nothing was saved
+        verify(memoryChunkRepository, never()).save(any());
+        verify(sessionMemoryRepository, never()).save(any());
     }
+
 
     @Test
     void appendChunk_sessionClosed_rejected() {
+        // Arrange
+        QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
+                .topicsUsed(0)
+                .tokenLimit(0)
+                .topicLimit(100)
+                .tokenLimit(10000L)
+                .build();
 
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        RequestMemoryChunkDTO dto = new RequestMemoryChunkDTO(
+                sessionId,
+                PrincipalType.GUEST,
+                principalId.toString(),
+                "hawk-tauh-man",
+                SessionSource.DISCORD,
+                "hawk-tauh-man",
+                "Hello, this is a test message",
+                Instant.now(),
+                null
+        );
+
+        PrincipalContext guestContext = PrincipalContext.builder()
+                .principalId(principalId)                        // ✅ NON-NULL
+                .principalType(PrincipalType.USER)
+                .accessLevel(AccessLevel.USER)
+                .plan(EffectivePlan.USER_FREE)
+                .quota(quotaSnapshot)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .externalGuestKey("hawk-tuah-man")
+                .build();
+//        TODO: Set options when entity exists.
+//        SessionOptions options = new SessionOptions();
+//        options.setScope(SessionScope.CHANNEL);
+//        options.setMaxChunksPerSession(10);
+
+        SessionMemoryEntity session = new SessionMemoryEntity();
+        session.setSessionId(sessionId);
+        session.setPrincipalType(PrincipalType.USER);
+        session.setPrincipalId(principalId.toString());
+        session.setSessionState(SessionState.STOPPED);
+        session.setChunkCount(0);
+//        session.setOptions(options);
+
+        Instant now = Instant.parse("2025-12-06T12:00:00Z");
+
+        when(sessionMemoryRepository
+                .findBySessionIdAndPrincipalTypeAndPrincipalId(
+                        sessionId,
+                        PrincipalType.GUEST,
+                        principalId.toString()))
+                .thenReturn(Optional.of(session));
+
+        // Act + Assert
+        Assertions.assertThrows(ResponseStatusException.class, () -> {
+            memoryService.recordOnly(guestContext, dto);
+        });
+
+        // Ensure nothing was saved
+        verify(memoryChunkRepository, never()).save(any());
+        verify(sessionMemoryRepository, never()).save(any());
     }
 
     @Test
     void appendChunk_maxChunksExceeded_sessionFull() {
+        // Arrange
+        QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
+                .topicsUsed(0)
+                .tokensUsed(10001L)
+                .topicLimit(100)
+                .tokenLimit(10000L)
+                .build();
 
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        RequestMemoryChunkDTO dto = new RequestMemoryChunkDTO(
+                sessionId,
+                PrincipalType.GUEST,
+                principalId.toString(),
+                "hawk-tauh-man",
+                SessionSource.DISCORD,
+                "hawk-tauh-man",
+                "Hello, this is a test message",
+                Instant.now(),
+                null
+        );
+
+        PrincipalContext guestContext = PrincipalContext.builder()
+                .principalId(principalId)                        // ✅ NON-NULL
+                .principalType(PrincipalType.USER)
+                .accessLevel(AccessLevel.USER)
+                .plan(EffectivePlan.USER_FREE)
+                .quota(quotaSnapshot)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .externalGuestKey("hawk-tuah-man")
+                .build();
+//        TODO: Set options when entity exists.
+//        SessionOptions options = new SessionOptions();
+//        options.setScope(SessionScope.CHANNEL);
+//        options.setMaxChunksPerSession(10);
+
+        SessionMemoryEntity session = new SessionMemoryEntity();
+        session.setSessionId(sessionId);
+        session.setPrincipalType(PrincipalType.USER);
+        session.setPrincipalId(principalId.toString());
+        session.setSessionState(SessionState.STOPPED);
+        session.setChunkCount(0);
+//        session.setOptions(options);
+
+        Instant now = Instant.parse("2025-12-06T12:00:00Z");
+
+        when(sessionMemoryRepository
+                .findBySessionIdAndPrincipalTypeAndPrincipalId(
+                        sessionId,
+                        PrincipalType.GUEST,
+                        principalId.toString()))
+                .thenReturn(Optional.of(session));
+
+        // Act + Assert
+        Assertions.assertThrows(ResponseStatusException.class, () -> {
+            memoryService.recordOnly(guestContext, dto);
+        });
+
+        // Ensure nothing was saved
+        verify(memoryChunkRepository, never()).save(any());
+        verify(sessionMemoryRepository, never()).save(any());
     }
 
     @Test
     void appendChunk_defaultsApplied_whenOptionsNull() {
-
+        // TODO
     }
 
     private String normalize(String text) {

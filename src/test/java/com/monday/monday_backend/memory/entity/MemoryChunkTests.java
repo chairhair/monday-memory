@@ -15,7 +15,6 @@ import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaSnapshot;
 import com.monday.shared.memory.session.GuestHandle;
-import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
@@ -118,6 +117,7 @@ public class MemoryChunkTests {
 
         QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
                 .topicsUsed(0)
+                .tokensUsed(0)
                 .topicLimit(100)
                 .tokenLimit(10_000L)
                 .build();
@@ -203,6 +203,7 @@ public class MemoryChunkTests {
 
         QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
                 .topicsUsed(0)
+                .tokensUsed(0)
                 .topicLimit(100)
                 .tokenLimit(10_000L)
                 .build();
