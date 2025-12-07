@@ -111,6 +111,9 @@ public class SessionService {
     public SessionMemoryEntity getSessionPresent(UUID sessionId,
                                                  PrincipalContext principal,
                                                  boolean availabilityRequired) {
+        if (principal.getPrincipalId() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cannot retrieve principal ids");
+        }
         String principalId = principal.getPrincipalId().toString();
         PrincipalType principalType = principal.getPrincipalType();
 
@@ -144,13 +147,28 @@ public class SessionService {
     public SessionMemoryResponseDTO stopSessionState(UUID sessionId, PrincipalContext principal) {
         SessionMemoryEntity currentSession = getSessionPresent(sessionId, principal, false);
 
-        if (!currentSession.getPrincipalType().equals(principal.getPrincipalType())
-                || !currentSession.getPrincipalId().equals(principal.getPrincipalId().toString())) {
+        if (currentSession == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Cannot use session that doesn't exist"
+            );
+        }
+
+        boolean principalTypeMismatch =
+                currentSession.getPrincipalType() != principal.getPrincipalType();
+
+        boolean principalIdMismatch = !idsMatch(
+                currentSession.getPrincipalId(),     // String? UUID? Doesn’t matter
+                principal.getPrincipalId()           // UUID? String? Doesn’t matter
+        );
+
+        if (principalTypeMismatch || principalIdMismatch) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Principal cannot stop a session they do not own"
             );
         }
+
 
         SessionState state = currentSession.getSessionState();
 
@@ -185,4 +203,14 @@ public class SessionService {
         }
         return sessionMemoryEntity.get().toDTO(HttpStatus.OK, sessionMemoryEntity.get().getScope(), "Found Source Conversation");
     }
+
+    private boolean idsMatch(Object sessionId, Object principalId) {
+        if (sessionId == null || principalId == null) {
+            // treat null-null as match, null-something as mismatch
+            return sessionId == principalId;
+        }
+
+        return sessionId.toString().equals(principalId.toString());
+    }
+
 }

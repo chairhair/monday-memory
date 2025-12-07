@@ -1,6 +1,7 @@
 package com.monday.monday_backend.memory.entity;
 
 import com.monday.monday_backend.auth.principal.PrincipalContext;
+import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.service.SessionService;
 import com.monday.shared.auth.utils.AccessLevel;
@@ -18,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -34,14 +36,17 @@ class StopSessionTests {
     @Mock
     private SessionMemoryRepository sessionMemoryRepository;
 
+    @MockBean
+    private PrincipalResolver principalResolver;
+
     @InjectMocks
     private SessionService sessionService;
 
     // --- helpers ----------------------------------------------------------
 
-    private PrincipalContext guestContext() {
+    private PrincipalContext guestContext(UUID principalId) {
         return PrincipalContext.builder()
-                .principalId(null)                // guest: using guestKey for principalId in entity
+                .principalId(principalId)                // guest: using guestKey for principalId in entity
                 .principalType(PrincipalType.GUEST)
                 .accessLevel(AccessLevel.GUEST)
                 .plan(EffectivePlan.GUEST_FREE)
@@ -58,7 +63,7 @@ class StopSessionTests {
         entity.setSource(SessionSource.DISCORD);
         entity.setSourceConversation("hawk-tuah-man");
         entity.setPrincipalType(PrincipalType.GUEST);
-        entity.setPrincipalId("guest-key-123");
+        entity.setPrincipalId(UUID.randomUUID().toString());
         entity.setScope(RecordingScope.PRIVATE);
         entity.setChunkCount(0);
         entity.setSessionState(state);
@@ -75,6 +80,7 @@ class StopSessionTests {
     @Test
     void stopSession_activeSession_becomesStopped_andPersists() {
         // given
+        UUID principalId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
 
         SessionMemoryEntity active = buildSession(
@@ -82,18 +88,19 @@ class StopSessionTests {
                 Instant.now().minusSeconds(300),
                 null
         );
+        active.setPrincipalId(principalId.toString());
         active.setSessionId(sessionId);
 
         when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
                 sessionId,
                 PrincipalType.GUEST,
-                "guest-key-123"
+                principalId.toString()
         )).thenReturn(Optional.of(active));
+
+        PrincipalContext ctx = guestContext(principalId);
 
         when(sessionMemoryRepository.save(any(SessionMemoryEntity.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-
-        PrincipalContext ctx = guestContext();
 
         // when
         SessionMemoryResponseDTO response =
@@ -117,6 +124,7 @@ class StopSessionTests {
     @Test
     void stopSession_alreadyStopped_isIdempotent_orThrowsConflict() {
         // given
+        UUID principalId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
 
         Instant originalEndedAt = Instant.now().minusSeconds(600);
@@ -127,16 +135,17 @@ class StopSessionTests {
                 Instant.now().minusSeconds(900),
                 originalEndedAt
         );
+        stopped.setPrincipalId(principalId.toString());
         stopped.setSessionId(sessionId);
         stopped.setUpdatedAt(originalUpdatedAt);
+
+        PrincipalContext ctx = guestContext(principalId);
 
         when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
                 sessionId,
                 PrincipalType.GUEST,
-                "guest-key-123"
+                principalId.toString()
         )).thenReturn(Optional.of(stopped));
-
-        PrincipalContext ctx = guestContext();
 
         // when
         Executable exec = () -> sessionService.stopSessionState(sessionId, ctx);
@@ -154,15 +163,16 @@ class StopSessionTests {
     @Test
     void stopSession_nonExistent_throwsNotFound() {
         // given
+        UUID principalId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
+
+        PrincipalContext ctx = guestContext(principalId);
 
         when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
                 sessionId,
                 PrincipalType.GUEST,
-                "guest-key-123"
+                principalId.toString()
         )).thenReturn(Optional.empty());
-
-        PrincipalContext ctx = guestContext();
 
         // when
         Executable exec = () -> sessionService.stopSessionState(sessionId, ctx);
@@ -178,6 +188,7 @@ class StopSessionTests {
     @Test
     void stopSession_invalidState_throwsConflict() {
         // given
+        UUID principalId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
 
         SessionMemoryEntity expired = buildSession(
@@ -185,15 +196,16 @@ class StopSessionTests {
                 Instant.now().minusSeconds(3600),
                 Instant.now().minusSeconds(1800)
         );
+        expired.setPrincipalId(principalId.toString());
         expired.setSessionId(sessionId);
+
+        PrincipalContext ctx = guestContext(principalId);
 
         when(sessionMemoryRepository.findBySessionIdAndPrincipalTypeAndPrincipalId(
                 sessionId,
                 PrincipalType.GUEST,
-                "guest-key-123"
+                principalId.toString()
         )).thenReturn(Optional.of(expired));
-
-        PrincipalContext ctx = guestContext();
 
         // when
         Executable exec = () -> sessionService.stopSessionState(sessionId, ctx);

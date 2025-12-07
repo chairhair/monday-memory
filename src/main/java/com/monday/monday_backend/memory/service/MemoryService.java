@@ -20,6 +20,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.*;
 
@@ -122,7 +125,7 @@ public class MemoryService {
 
         // If we don't have an existing session, create one
         CreateSessionRequestDTO createReq = new CreateSessionRequestDTO(
-                principal.getPrincipalId().toString(),
+                principal.getExternalGuestKey(),
                 dto.sourceConversationKey(),
                 dto.source(),
                 dto.sourceConversationKey(),
@@ -150,7 +153,7 @@ public class MemoryService {
                                                  SessionMemoryEntity session,
                                                  RequestMemoryChunkDTO dto) {
 
-        String principalId = principal.getPrincipalId().toString();
+        String principalId = (principal.getPrincipalId() != null) ? principal.getPrincipalId().toString() : null;
         PrincipalType principalType = principal.getPrincipalType();
 
         MemoryChunkEntity newChunk = new MemoryChunkEntity();
@@ -162,13 +165,17 @@ public class MemoryService {
         Map<String, Object> content = Map.of(
                 "body", dto.content(),
                 "principalType", principalType.name(),
-                "principalId", principalId,
+                "principalId", (principal.getPrincipalId() == null) ? "" : principalId,
+                    "guestKey", principal.getExternalGuestKey(),
                 "source", dto.source().toString(),
                 "sourceConversationKey", dto.sourceConversationKey()
         );
 
         // however you're currently serializing to JSON or some column:
-        newChunk.setContent(content);//memoryChunkUtils.toJson(content));
+        newChunk.setContent(content);
+
+        String normalizedText = normalize(dto.content());
+        newChunk.setHashSha256(sha256(normalizedText));
 
         // Increment session chunk count here if you’re tracking it
         session.setChunkCount(session.getChunkCount() + 1);
@@ -178,5 +185,22 @@ public class MemoryService {
 
     private String buildContextFromChunks(List<MemoryChunkEntity> chunks) {
         return memoryChunkUtils.buildContext(chunks);
+    }
+
+    private String normalize(String text) {
+        if (text == null) return "";
+        return text
+                .trim()
+                .replaceAll("\\s+", " ");
+    }
+
+    private String sha256(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hashBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm missing", e);
+        }
     }
 }
