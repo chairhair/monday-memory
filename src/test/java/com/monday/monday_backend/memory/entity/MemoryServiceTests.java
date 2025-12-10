@@ -1,42 +1,42 @@
 package com.monday.monday_backend.memory.entity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
+import com.monday.monday_backend.llm.LlmClient;
 import com.monday.monday_backend.memory.repo.MemoryChunkRepository;
-import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.service.MemoryService;
+import com.monday.monday_backend.memory.service.QuotaService;
 import com.monday.monday_backend.memory.service.SessionService;
+import com.monday.monday_backend.memory.utils.MemoryChunkUtils;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.memory.plan.EffectivePlan;
+import com.monday.shared.memory.quota.QuotaDecision;
 import com.monday.shared.memory.quota.QuotaSnapshot;
+import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
 import com.monday.shared.recording.RecordingScope;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -49,19 +49,26 @@ import static org.mockito.Mockito.*;
 public class MemoryServiceTests {
 
     @Mock
-    private SessionMemoryRepository sessionMemoryRepository;
+    private SessionService sessionService;
 
     @Mock
     private MemoryChunkRepository memoryChunkRepository;
 
     @Mock
-    private Clock clock;
+    private MemoryChunkUtils memoryChunkUtils;
 
-    @MockBean
-    private SessionService sessionService;
+    @Mock
+    private LlmClient llmClient;
 
-    @InjectMocks
+    @Mock
+    private QuotaService quotaService;
+
     private MemoryService memoryService;
+
+    @BeforeEach
+    void setUp() {
+        memoryService = new MemoryService(sessionService, quotaService, memoryChunkRepository, memoryChunkUtils, llmClient);
+    }
 
     private MemoryChunkEntity buildMemory(String content, String guestKey, SessionMemoryEntity session) {
         MemoryChunkEntity chunk = new MemoryChunkEntity();
@@ -120,10 +127,9 @@ public class MemoryServiceTests {
                 .recallScope(null)
                 .externalGuestKey("hawk-tuah-man")
                 .build();
-//        TODO: Set options when entity exists.
-//        SessionOptions options = new SessionOptions();
-//        options.setScope(SessionScope.CHANNEL);
-//        options.setMaxChunksPerSession(10);
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
 
         SessionMemoryEntity session = new SessionMemoryEntity();
         session.setSessionId(sessionId);
@@ -131,19 +137,13 @@ public class MemoryServiceTests {
         session.setPrincipalId("user-123");
         session.setSessionState(SessionState.ACTIVE);
         session.setChunkCount(0);
-//        session.setOptions(options);
+        session.setOptions(options);
 
         Instant now = Instant.parse("2025-12-06T12:00:00Z");
 
-        when(sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(
-                        sessionId,
-                        PrincipalType.GUEST,
-                        principalId.toString()))
-                .thenReturn(Optional.of(session));
-
+        when(quotaService.decide(eq(quotaSnapshot))).thenReturn(QuotaDecision.ALLOW);
+        when(quotaService.snapshotFor(any())).thenReturn(quotaSnapshot);
         when(sessionService.getSessionPresent(any(), any(), eq(false))).thenReturn(session);
-        when(clock.instant()).thenReturn(now);
 
         // memoryChunkRepository.save returns the entity we give it
         // you can capture it to assert fields:
@@ -157,7 +157,6 @@ public class MemoryServiceTests {
         // Assert
         // session updated in memory
         Assertions.assertEquals(1, session.getChunkCount());
-        Assertions.assertEquals(now, session.getLastOccurredAt());
 
         // chunk saved with correct fields
         verify(memoryChunkRepository).save(chunkCaptor.capture());
@@ -170,14 +169,10 @@ public class MemoryServiceTests {
         Assertions.assertNotNull(response);
         Assertions.assertEquals(dto.content(), response.content());
         Assertions.assertEquals(dto.principalId(), response.principalId());
-
-        // session persisted
-        verify(sessionMemoryRepository).save(session);
-
     }
 
     @Test
-    void appendChunk_wrongPrincipal_throwsForbidden() {
+    void appendChunk_wrongPrincipal_throwsStatusException() {
         // Arrange
         QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
                 .topicsUsed(0)
@@ -188,6 +183,7 @@ public class MemoryServiceTests {
 
         UUID sessionId = UUID.randomUUID();
         UUID principalId = UUID.randomUUID();
+        UUID fakePrincipalId = UUID.randomUUID();
 
         RequestMemoryChunkDTO dto = new RequestMemoryChunkDTO(
                 sessionId,
@@ -211,27 +207,21 @@ public class MemoryServiceTests {
                 .recallScope(null)
                 .externalGuestKey("hawk-tuah-man")
                 .build();
-//        TODO: Set options when entity exists.
-//        SessionOptions options = new SessionOptions();
-//        options.setScope(SessionScope.CHANNEL);
-//        options.setMaxChunksPerSession(10);
+
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
 
         SessionMemoryEntity session = new SessionMemoryEntity();
         session.setSessionId(sessionId);
         session.setPrincipalType(PrincipalType.USER);
-        session.setPrincipalId("user-123");
+        session.setPrincipalId(fakePrincipalId.toString());
         session.setSessionState(SessionState.ACTIVE);
         session.setChunkCount(0);
-//        session.setOptions(options);
+        session.setOptions(options);
 
-        Instant now = Instant.parse("2025-12-06T12:00:00Z");
-
-        when(sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(
-                        sessionId,
-                        PrincipalType.GUEST,
-                        principalId.toString()))
-                .thenReturn(Optional.of(session));
+        when(sessionService.getSessionPresent(any(), any(), eq(false))).thenReturn(null);
+        when(sessionService.createOrReuseSession(any(), any(), any())).thenReturn(new SessionMemoryResponseDTO(HttpStatus.FORBIDDEN, null, null, null, null, null, null, null, null));
 
         // Act + Assert
         Assertions.assertThrows(ResponseStatusException.class, () -> {
@@ -240,7 +230,6 @@ public class MemoryServiceTests {
 
         // Ensure nothing was saved
         verify(memoryChunkRepository, never()).save(any());
-        verify(sessionMemoryRepository, never()).save(any());
     }
 
 
@@ -279,10 +268,9 @@ public class MemoryServiceTests {
                 .recallScope(null)
                 .externalGuestKey("hawk-tuah-man")
                 .build();
-//        TODO: Set options when entity exists.
-//        SessionOptions options = new SessionOptions();
-//        options.setScope(SessionScope.CHANNEL);
-//        options.setMaxChunksPerSession(10);
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
 
         SessionMemoryEntity session = new SessionMemoryEntity();
         session.setSessionId(sessionId);
@@ -290,16 +278,9 @@ public class MemoryServiceTests {
         session.setPrincipalId(principalId.toString());
         session.setSessionState(SessionState.STOPPED);
         session.setChunkCount(0);
-//        session.setOptions(options);
+        session.setOptions(options);
 
-        Instant now = Instant.parse("2025-12-06T12:00:00Z");
-
-        when(sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(
-                        sessionId,
-                        PrincipalType.GUEST,
-                        principalId.toString()))
-                .thenReturn(Optional.of(session));
+        when(sessionService.getSessionPresent(any(), any(), eq(false))).thenReturn(session);
 
         // Act + Assert
         Assertions.assertThrows(ResponseStatusException.class, () -> {
@@ -308,11 +289,69 @@ public class MemoryServiceTests {
 
         // Ensure nothing was saved
         verify(memoryChunkRepository, never()).save(any());
-        verify(sessionMemoryRepository, never()).save(any());
     }
 
     @Test
     void appendChunk_maxChunksExceeded_sessionFull() {
+        // Arrange
+        QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
+                .topicsUsed(0)
+                .tokensUsed(0L)
+                .topicLimit(100)
+                .tokenLimit(10000L)
+                .build();
+
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        RequestMemoryChunkDTO dto = new RequestMemoryChunkDTO(
+                sessionId,
+                PrincipalType.GUEST,
+                principalId.toString(),
+                "hawk-tauh-man",
+                SessionSource.DISCORD,
+                "hawk-tauh-man",
+                "Hello, this is a test message",
+                Instant.now(),
+                null
+        );
+
+        PrincipalContext guestContext = PrincipalContext.builder()
+                .principalId(principalId)                        // ✅ NON-NULL
+                .principalType(PrincipalType.USER)
+                .accessLevel(AccessLevel.USER)
+                .plan(EffectivePlan.USER_FREE)
+                .quota(quotaSnapshot)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .externalGuestKey("hawk-tuah-man")
+                .build();
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
+
+        SessionMemoryEntity session = new SessionMemoryEntity();
+        session.setSessionId(sessionId);
+        session.setPrincipalType(PrincipalType.USER);
+        session.setPrincipalId(principalId.toString());
+        session.setSessionState(SessionState.ACTIVE);
+        session.setChunkCount(10);
+        session.setOptions(options);
+
+        when(quotaService.snapshotFor(any())).thenReturn(quotaSnapshot);
+        when(sessionService.getSessionPresent(any(), any(), eq(false))).thenReturn(session);
+
+        // Act + Assert
+        Assertions.assertThrows(ResponseStatusException.class, () -> {
+            memoryService.recordOnly(guestContext, dto);
+        });
+
+        // Ensure nothing was saved
+        verify(memoryChunkRepository, never()).save(any());
+    }
+
+    @Test
+    void appendChunk_tokensExceeded_sessionFull() {
         // Arrange
         QuotaSnapshot quotaSnapshot = QuotaSnapshot.builder()
                 .topicsUsed(0)
@@ -346,27 +385,21 @@ public class MemoryServiceTests {
                 .recallScope(null)
                 .externalGuestKey("hawk-tuah-man")
                 .build();
-//        TODO: Set options when entity exists.
-//        SessionOptions options = new SessionOptions();
-//        options.setScope(SessionScope.CHANNEL);
-//        options.setMaxChunksPerSession(10);
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
 
         SessionMemoryEntity session = new SessionMemoryEntity();
         session.setSessionId(sessionId);
         session.setPrincipalType(PrincipalType.USER);
         session.setPrincipalId(principalId.toString());
-        session.setSessionState(SessionState.STOPPED);
+        session.setSessionState(SessionState.ACTIVE);
         session.setChunkCount(0);
-//        session.setOptions(options);
+        session.setOptions(options);
 
-        Instant now = Instant.parse("2025-12-06T12:00:00Z");
-
-        when(sessionMemoryRepository
-                .findBySessionIdAndPrincipalTypeAndPrincipalId(
-                        sessionId,
-                        PrincipalType.GUEST,
-                        principalId.toString()))
-                .thenReturn(Optional.of(session));
+        when(sessionService.getSessionPresent(any(), any(), eq(false))).thenReturn(session);
+        when(quotaService.decide(eq(quotaSnapshot))).thenReturn(QuotaDecision.BLOCK);
+        when(quotaService.snapshotFor(any())).thenReturn(quotaSnapshot);
 
         // Act + Assert
         Assertions.assertThrows(ResponseStatusException.class, () -> {
@@ -375,12 +408,57 @@ public class MemoryServiceTests {
 
         // Ensure nothing was saved
         verify(memoryChunkRepository, never()).save(any());
-        verify(sessionMemoryRepository, never()).save(any());
     }
 
     @Test
     void appendChunk_defaultsApplied_whenOptionsNull() {
-        // TODO
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        RequestMemoryChunkDTO dto = new RequestMemoryChunkDTO(
+                sessionId,
+                PrincipalType.GUEST,
+                principalId.toString(),
+                "hawk-tauh-man",
+                SessionSource.DISCORD,
+                "hawk-tauh-man",
+                "Hello, this is a test message",
+                Instant.now(),
+                null
+        );
+
+        PrincipalContext guestContext = PrincipalContext.builder()
+                .principalId(principalId)                        // ✅ NON-NULL
+                .principalType(PrincipalType.USER)
+                .accessLevel(AccessLevel.USER)
+                .plan(EffectivePlan.USER_FREE)
+                .quota(null)
+                .recordingScope(RecordingScope.PRIVATE)
+                .recallScope(null)
+                .externalGuestKey("hawk-tuah-man")
+                .build();
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
+
+        SessionMemoryEntity session = new SessionMemoryEntity();
+        session.setSessionId(sessionId);
+        session.setPrincipalType(PrincipalType.USER);
+        session.setPrincipalId(principalId.toString());
+        session.setSessionState(SessionState.ACTIVE);
+        session.setChunkCount(0);
+        session.setOptions(options);
+
+        when(sessionService.getSessionPresent(any(), any(), eq(false))).thenReturn(session);
+        when(quotaService.snapshotFor(any())).thenReturn(null);
+
+        // Act + Assert
+        Assertions.assertThrows(ResponseStatusException.class, () -> {
+            memoryService.recordOnly(guestContext, dto);
+        });
+
+        // Ensure nothing was saved
+        verify(memoryChunkRepository, never()).save(any());
     }
 
     private String normalize(String text) {

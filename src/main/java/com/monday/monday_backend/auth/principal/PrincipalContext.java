@@ -2,6 +2,7 @@ package com.monday.monday_backend.auth.principal;
 
 import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.users.UserEntity;
+import com.monday.monday_backend.memory.entity.SessionOptionsEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.llm.RecallScope;
@@ -12,6 +13,8 @@ import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.recording.RecordingScope;
 import lombok.Builder;
 import lombok.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -47,5 +50,30 @@ public class PrincipalContext {
 
     public boolean isLinkedAccount() {
         return user != null && user.getEmail() != null;
+    }
+
+    public boolean isUser() {
+        return principalType == PrincipalType.USER;
+    }
+
+    public boolean isGuest() {
+        return principalType == PrincipalType.GUEST;
+    }
+
+    public boolean hasUserId() {
+        return principalId != null;
+    }
+
+    public boolean hasGuestKey() {
+        return externalGuestKey != null && !externalGuestKey.isBlank();
+    }
+
+    public void validateShape() {
+        if (isUser() && principalId == null) {
+            throw new IllegalStateException("USER principal must have non-null principalId");
+        }
+        if (isGuest() && principalId != null) {
+            throw new IllegalStateException("GUEST principal must not have principalId");
+        }
     }
 }

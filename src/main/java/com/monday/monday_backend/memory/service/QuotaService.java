@@ -14,6 +14,8 @@ public interface QuotaService {
                               UserPlanEntity userPlan,
                               EffectivePlan effectivePlan);
 
+    QuotaSnapshot snapshotFor(UserPlanEntity userPlan);
+
     QuotaDecision decide(QuotaSnapshot snapshot);
 
     String buildWarningMessage(PrincipalContext principal);

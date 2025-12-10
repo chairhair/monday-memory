@@ -90,6 +90,11 @@ public class SessionMemoryEntity {
     @Column
     private String idempotencyKey;
 
+    @Setter
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "session_options_id")
+    private SessionOptionsEntity options;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Setter

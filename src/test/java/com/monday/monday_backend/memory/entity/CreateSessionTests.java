@@ -11,7 +11,9 @@ import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.session.GuestHandle;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.dto.SessionOptionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.recording.RecordingScope;
 import org.junit.jupiter.api.Assertions;
@@ -65,7 +67,8 @@ public class CreateSessionTests extends JwksTestSupport {
                         null,                  // topicName (can be null for now)
                         SessionSource.DISCORD,
                         "1",                    // sourceConversationKey
-                        RecordingScope.PRIVATE
+                        RecordingScope.PRIVATE,
+                        new SessionOptionRequestDTO(SessionScope.CHANNEL, 10)
                 );
         // This is what we expect the PrincipalResolver to return when no auth headers exist (guest)
         PrincipalContext guestContext = PrincipalContext.builder()
@@ -151,7 +154,8 @@ public class CreateSessionTests extends JwksTestSupport {
                         null,                  // topicName (can be null for now)
                         SessionSource.DISCORD,
                         "1",                    // sourceConversationKey
-                        RecordingScope.PRIVATE
+                        RecordingScope.PRIVATE,
+                        new SessionOptionRequestDTO(SessionScope.CHANNEL, 10)
                 );
         // This is what we expect the PrincipalResolver to return when auth headers exist (user)
         PrincipalContext guestContext = PrincipalContext.builder()

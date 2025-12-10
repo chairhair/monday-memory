@@ -3,10 +3,13 @@ package com.monday.monday_backend.memory.service;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
+import com.monday.monday_backend.memory.entity.SessionOptionsEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
+import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.memory.session.utils.SessionState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,9 +36,13 @@ public class SessionService {
     public SessionMemoryResponseDTO createOrReuseSession(PrincipalContext principal,
                                                          CreateSessionRequestDTO request,
                                                          String idempotencyKey) {
-        String principalId = principal.getPrincipalId().toString();
+        try {
+            principal.validateShape();
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot validate the principal provided");
+        }
         PrincipalType principalType = principal.getPrincipalType();
-
+        String principalId = (principal.getPrincipalId() != null) ? principal.getPrincipalId().toString() : null;
         String currentIdempotencyKey = null;
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             currentIdempotencyKey = UUID.randomUUID().toString();
@@ -55,6 +62,16 @@ public class SessionService {
             if (principal.getUser() != null) {
                 entity.setUser(principal.getUser());
             }
+            SessionOptionsEntity se = new SessionOptionsEntity();
+            se.setSession(entity);
+            if (request.options() == null) {
+                se.setScope(SessionScope.CHANNEL);
+                se.setMaxChunksPerSession(10);
+            } else {
+                se.setScope(request.options().scope());
+                se.setMaxChunksPerSession(request.options().maxChunksPerSession());
+            }
+            entity.setOptions(se);
             entity.setChunkCount(0);
 
             SessionMemoryEntity saved = sessionMemoryRepository.saveAndFlush(entity);

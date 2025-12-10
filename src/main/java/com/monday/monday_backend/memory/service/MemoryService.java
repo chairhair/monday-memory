@@ -4,16 +4,23 @@ import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.llm.LlmClient;
 import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
+import com.monday.monday_backend.memory.entity.SessionOptionsEntity;
 import com.monday.monday_backend.memory.repo.MemoryChunkRepository;
 import com.monday.monday_backend.memory.utils.MemoryChunkUtils;
+import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.llm.LlmMessage;
 import com.monday.shared.llm.LlmRequestDTO;
 import com.monday.shared.llm.LlmResponseDTO;
 import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
+import com.monday.shared.memory.quota.QuotaDecision;
+import com.monday.shared.memory.quota.QuotaSnapshot;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
+import com.monday.shared.memory.session.dto.SessionOptionRequestDTO;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.memory.session.utils.SessionScope;
+import com.monday.shared.memory.session.utils.SessionState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -32,6 +39,7 @@ import java.util.*;
 public class MemoryService {
 
     private final SessionService sessionService;
+    private final QuotaService quotaService;
     private final MemoryChunkRepository memoryChunkRepository;
     private final MemoryChunkUtils memoryChunkUtils;
     private final LlmClient llmClient;
@@ -49,10 +57,7 @@ public class MemoryService {
         // 2) Build LLM context from past chunks in that session
         List<LlmMessage> messages = new ArrayList<>();
 
-        List<MemoryChunkEntity> chunks = new ArrayList<>();
-        if (session != null) {
-            chunks = memoryChunkRepository.findTop5BySessionOrderByOccurredAtDesc(session);
-        }
+        List<MemoryChunkEntity> chunks = memoryChunkRepository.findTop5BySessionOrderByOccurredAtDesc(session);
 
         String contextText = buildContextFromChunks(chunks);
 
@@ -103,10 +108,9 @@ public class MemoryService {
     public ResponseMemoryChunkDTO recordOnly(PrincipalContext principal,
                                              RequestMemoryChunkDTO dto) {
         SessionMemoryEntity session = resolveOrCreateSession(principal, dto);
+
         MemoryChunkEntity chunk = createChunkFromDto(principal, session, dto);
         memoryChunkRepository.save(chunk);
-
-        sessionService.updateChunkCount(session, 1);
 
         return new ResponseMemoryChunkDTO(dto.content(),principal.getPrincipalType(),principal.getPrincipalId().toString(), chunk.getOccurredAt(), null);
     }
@@ -119,6 +123,24 @@ public class MemoryService {
             SessionMemoryEntity existing =
                     sessionService.getSessionPresent(dto.sessionId(), principal, false);
             if (existing != null) {
+                if (existing.getSessionState() != SessionState.ACTIVE) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot append memory to closed session");
+                }
+
+                UserPlanEntity userPlanEntity = existing.getUser() == null ? null : existing.getUser().getUserPlan();
+                QuotaSnapshot snapshot = quotaService.snapshotFor(userPlanEntity);
+                SessionOptionsEntity options = existing.getOptions();
+                Integer maxChunks = (options != null) ? options.getMaxChunksPerSession() : null;
+
+                if (maxChunks != null && maxChunks <= existing.getChunkCount()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Went past our max chunks");
+                }
+                if (snapshot == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Snapshot is considered null");
+                }
+                if (quotaService.decide(snapshot) == QuotaDecision.BLOCK) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot process quota because it's reached it's limits on tokens/topics");
+                }
                 return existing;
             }
         }
@@ -129,14 +151,16 @@ public class MemoryService {
                 dto.sourceConversationKey(),
                 dto.source(),
                 dto.sourceConversationKey(),
-                principal.getRecordingScope()
+                principal.getRecordingScope(),
+                new SessionOptionRequestDTO(SessionScope.CHANNEL, 10)
         );
 
         SessionMemoryResponseDTO sessionDTO =
                 sessionService.createOrReuseSession(principal, createReq, null);
 
         if (!sessionDTO.statusCode().is2xxSuccessful()
-                && sessionDTO.sessionIds() == null || sessionDTO.sessionIds().isEmpty()) {
+                || sessionDTO.sessionIds() == null
+                || sessionDTO.sessionIds().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Unable to create or resolve session for memory");
         }

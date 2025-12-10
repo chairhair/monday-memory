@@ -9,8 +9,10 @@ import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaDecision;
 import com.monday.shared.memory.quota.QuotaSnapshot;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
+@Primary
 @Service
 @RequiredArgsConstructor
 public class SimpleQuotaService implements QuotaService {
@@ -51,6 +53,11 @@ public class SimpleQuotaService implements QuotaService {
                 .tokenLimit(tokenLimit)
                 .warningThresholdRatio(warningRatio)
                 .build();
+    }
+
+    @Override
+    public QuotaSnapshot snapshotFor(UserPlanEntity userPlan) {
+        return snapshotFor(null, null, userPlan, null);
     }
 
     @Override
