@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,24 @@ public class MemoryChunkUtils {
     }
 
     /**
+     * Convert a ResponseMemoryChunkDTO to a MemoryChunkEntity
+     */
+    public MemoryChunkEntity toMemoryEntity(ResponseMemoryChunkDTO dto, SessionMemoryEntity sessionMemory) {
+        Instant now = Instant.now();
+        MemoryChunkEntity memoryChunkEntity = new MemoryChunkEntity();
+        Map<String, Object> content = toMap(dto.content());
+        memoryChunkEntity.setContent(content);
+        if (sessionMemory != null) {
+            memoryChunkEntity.setSession(sessionMemory);
+        }
+        memoryChunkEntity.setIngestedAt(now);
+        memoryChunkEntity.setOccurredAt(now);
+        memoryChunkEntity.setTags(dto.tags());
+        memoryChunkEntity.setHashSha256(sha256(content.get("text").toString()));
+        return memoryChunkEntity;
+    }
+
+    /**
      * Build a MemoryChunkEntity for a *user* message in a chat-like interaction.
      */
     public MemoryChunkEntity forUserMessage(
@@ -57,13 +76,13 @@ public class MemoryChunkUtils {
 
         chunk.setTags(List.of(
                 "kind:chat_message",
-                "role:user",
+                "role:"+session.getPrincipalType().toString(),
                 "source:" + source
         ));
 
         chunk.setContent(Map.of(
                 "kind", "chat_message",
-                "role", "user",
+                "role", session.getPrincipalType().toString(),
                 "text", text,
                 "source", source
         ));
@@ -104,6 +123,22 @@ public class MemoryChunkUtils {
         String normalized = normalize(text);
         chunk.setHashSha256(sha256(normalized));
         return chunk;
+    }
+
+    /**
+     * Deserialize arbitrary content to Map using a shared Object Mapper.
+     */
+    public Map<String, Object> toMap(String content) {
+        if (content == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(content, new TypeReference<>() {
+            });
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize memory chunk content: {}", content, e);
+            throw new IllegalStateException("Failed to serialize memory chunk content", e);
+        }
     }
 
     /**
