@@ -5,6 +5,7 @@ import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
+import com.monday.shared.memory.dto.RequestMemoryQueryDTO;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.query.QueryRequestDTO;
 import com.monday.shared.query.QueryResponseDTO;
@@ -45,14 +46,14 @@ public class QueryController {
     @PostMapping("/public/q")
     public ResponseMemoryChunkDTO searchQuery(
             @AuthenticationPrincipal AuthUser authUser,
-            @RequestBody RequestMemoryChunkDTO requestDTO) {
+            @RequestBody RequestMemoryQueryDTO requestDTO) {
 
 
-        if (requestDTO.content() == null) {
+        if (requestDTO.memoryChunkDTO().content() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "There's no query!");
         }
 
-        PrincipalContext principal = principalResolver.fromAuthUser(authUser, requestDTO.sourceToGuestSource());
+        PrincipalContext principal = principalResolver.fromAuthUser(authUser, requestDTO.memoryChunkDTO().sourceToGuestSource());
 
         return memory.query(principal, requestDTO);
     }

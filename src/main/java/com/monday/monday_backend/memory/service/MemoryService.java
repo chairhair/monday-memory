@@ -12,12 +12,14 @@ import com.monday.shared.llm.LlmMessage;
 import com.monday.shared.llm.LlmRequestDTO;
 import com.monday.shared.llm.LlmResponseDTO;
 import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
+import com.monday.shared.memory.dto.RequestMemoryQueryDTO;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.memory.quota.QuotaDecision;
 import com.monday.shared.memory.quota.QuotaSnapshot;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.dto.SessionOptionRequestDTO;
+import com.monday.shared.memory.session.utils.MemoryAggregationOptions;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.memory.session.utils.SessionState;
@@ -41,6 +43,7 @@ public class MemoryService {
     private final SessionService sessionService;
     private final QuotaService quotaService;
     private final MemoryChunkRepository memoryChunkRepository;
+    private final MemoryAggregationService memoryAggregationService;
     private final MemoryChunkUtils memoryChunkUtils;
     private final LlmClient llmClient;
 
@@ -49,15 +52,18 @@ public class MemoryService {
      * Used by QueryProcessingService for both guest + user flows via PrincipalContext.
      */
     public ResponseMemoryChunkDTO query(PrincipalContext principal,
-                                        RequestMemoryChunkDTO dto) {
+                                        RequestMemoryQueryDTO dto) {
+
+        RequestMemoryChunkDTO memDto = dto.memoryChunkDTO();
+        MemoryAggregationOptions options = dto.options();
 
         // 1) Ensure we have a session for this principal
-        SessionMemoryEntity session = resolveOrCreateSession(principal, dto);
+        SessionMemoryEntity session = resolveOrCreateSession(principal, memDto);
 
         // 2) Build LLM context from past chunks in that session
         List<LlmMessage> messages = new ArrayList<>();
 
-        List<MemoryChunkEntity> chunks = memoryChunkRepository.findTop5BySessionOrderByOccurredAtDesc(session);
+        List<MemoryChunkEntity> chunks = memoryAggregationService.aggregate(session, options);
 
         String contextText = buildContextFromChunks(chunks);
 
@@ -72,7 +78,7 @@ public class MemoryService {
                         """.formatted(contextText)
         ));
 
-        messages.add(new LlmMessage(LlmMessage.Role.USER, dto.content()));
+        messages.add(new LlmMessage(LlmMessage.Role.USER, memDto.content()));
 
         LlmRequestDTO llmRequestDTO = new LlmRequestDTO(
                 null,                        // model override (use default)
@@ -80,7 +86,7 @@ public class MemoryService {
                 null,                        // temperature
                 null,                        // maxTokens/timeout
                 principal.getPrincipalId().toString(),// userId
-                dto.sessionId().toString(),  // sessionId
+                memDto.sessionId().toString(),  // sessionId
                 null,                        // metadata
                 null                         // providerOverride
         );
@@ -88,9 +94,9 @@ public class MemoryService {
         LlmResponseDTO llmResponseDTO = llmClient.chat(llmRequestDTO);
 
         MemoryChunkEntity userChunk =
-                memoryChunkUtils.forUserMessage(session, dto.content(), dto.source().toString());
+                memoryChunkUtils.forUserMessage(session, memDto.content(), memDto.source().toString());
         MemoryChunkEntity assistantChunk =
-                memoryChunkUtils.forAssistantMessage(session, llmResponseDTO.content(), dto.source().toString());
+                memoryChunkUtils.forAssistantMessage(session, llmResponseDTO.content(), memDto.source().toString());
 
         memoryChunkRepository.save(userChunk);
         memoryChunkRepository.save(assistantChunk);
@@ -127,6 +133,7 @@ public class MemoryService {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot append memory to closed session");
                 }
 
+                // This is the freshest version of our user entity. Thus, we should represent it as so
                 UserPlanEntity userPlanEntity = existing.getUser() == null ? null : existing.getUser().getUserPlan();
                 QuotaSnapshot snapshot = quotaService.snapshotFor(userPlanEntity);
                 SessionOptionsEntity options = existing.getOptions();

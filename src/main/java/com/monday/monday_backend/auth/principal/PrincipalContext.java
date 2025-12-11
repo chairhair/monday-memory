@@ -68,6 +68,8 @@ public class PrincipalContext {
         return externalGuestKey != null && !externalGuestKey.isBlank();
     }
 
+    public SessionOptions
+
     public void validateShape() {
         if (isUser() && principalId == null) {
             throw new IllegalStateException("USER principal must have non-null principalId");

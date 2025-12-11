@@ -3,6 +3,7 @@ package com.monday.monday_backend.memory.entity;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.llm.LlmClient;
 import com.monday.monday_backend.memory.repo.MemoryChunkRepository;
+import com.monday.monday_backend.memory.service.MemoryAggregationService;
 import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.monday_backend.memory.service.QuotaService;
 import com.monday.monday_backend.memory.service.SessionService;
@@ -61,13 +62,16 @@ public class MemoryServiceTests {
     private LlmClient llmClient;
 
     @Mock
+    private MemoryAggregationService memoryAggregationService;
+
+    @Mock
     private QuotaService quotaService;
 
     private MemoryService memoryService;
 
     @BeforeEach
     void setUp() {
-        memoryService = new MemoryService(sessionService, quotaService, memoryChunkRepository, memoryChunkUtils, llmClient);
+        memoryService = new MemoryService(sessionService, quotaService, memoryChunkRepository, memoryAggregationService, memoryChunkUtils, llmClient);
     }
 
     private MemoryChunkEntity buildMemory(String content, String guestKey, SessionMemoryEntity session) {
