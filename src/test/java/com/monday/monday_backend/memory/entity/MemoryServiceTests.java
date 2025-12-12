@@ -471,7 +471,7 @@ public class MemoryServiceTests {
     }
 
     @Test
-    void appendChunk_defaultsApplied_whenOptionsNull() {
+    void appendChunk_nullOptionsAndQuotaSnapshot_throws() {
         UUID sessionId = UUID.randomUUID();
         UUID principalId = UUID.randomUUID();
 
