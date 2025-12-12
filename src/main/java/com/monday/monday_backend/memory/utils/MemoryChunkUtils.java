@@ -109,13 +109,13 @@ public class MemoryChunkUtils {
 
         chunk.setTags(List.of(
                 "kind:chat_message",
-                "role:assistant",
+                "role:ASSISTANT",
                 "source:" + source
         ));
 
         chunk.setContent(Map.of(
                 "kind", "chat_message",
-                "role", "assistant",
+                "role", "ASSISTANT",
                 "text", text,
                 "source", source
         ));
@@ -133,7 +133,7 @@ public class MemoryChunkUtils {
             return null;
         }
         try {
-            return objectMapper.readValue(content, new TypeReference<>() {
+            return objectMapper.readValue(content, new TypeReference<Map<String,Object>>() {
             });
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize memory chunk content: {}", content, e);

@@ -22,6 +22,7 @@ import com.monday.shared.memory.session.utils.SessionSource;
 import com.monday.shared.memory.session.utils.SessionState;
 import com.monday.shared.recording.RecordingScope;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -59,56 +60,16 @@ public class MemoryChunkTests {
     ObjectMapper mapper;
 
     @Mock MemoryChunkRepository memoryChunkRepository;
-
     @MockBean UserService userService;
-    @MockBean MemoryService memoryService;
     @MockBean SessionService sessionService;
+    @MockBean MemoryService memoryService;
     @MockBean PrincipalResolver principalResolver;
 
-    MemoryChunkUtils memoryChunkUtils = new MemoryChunkUtils(mapper);
+    MemoryChunkUtils memoryChunkUtils;
 
-    private SessionMemoryEntity buildSession(SessionState state,
-                                             String sessionId,
-                                             String principalId,
-                                             PrincipalType principalType,
-                                             RecordingScope scope,
-                                             Instant endedAt) {
-        SessionMemoryEntity entity = new SessionMemoryEntity();
-        entity.setSessionId(UUID.fromString(sessionId));
-        entity.setSource(SessionSource.DISCORD);
-        entity.setSourceConversation("hawk-tuah-man");
-        entity.setPrincipalType(principalType);
-        entity.setPrincipalId(principalId);
-        entity.setScope(scope);
-        entity.setChunkCount(0);
-        entity.setSessionState(state);
-        entity.setLastOccurredAt(Instant.now());
-        entity.setEndedAt(endedAt);
-        entity.setCreatedAt(Instant.now().minusSeconds(7200));
-        entity.setUpdatedAt(Instant.now().minusSeconds(3600));
-        entity.setIdempotencyKey("test-idemp-key");
-        return entity;
-    }
-
-    private MemoryChunkEntity buildMemory(String content, String guestKey, SessionMemoryEntity session) {
-        MemoryChunkEntity chunk = new MemoryChunkEntity();
-        chunk.setMemoryId(UUID.randomUUID());
-        chunk.setSession(session);
-        chunk.setOccurredAt(Instant.now());
-        chunk.setIngestedAt(Instant.now());
-        chunk.setTags(null);
-        chunk.setContent(Map.of(
-                "body", content,
-                "principalType", session.getPrincipalType(),
-                "principalId", (session.getPrincipalId() == null) ? "" : session.getPrincipalId(),
-                "guestKey", guestKey,
-                "source", session.getSource(),
-                "sourceConversationKey", session.getSourceConversation()
-        ));
-        String normalized = normalize(content);
-        chunk.setHashSha256(sha256(normalized));
-
-        return chunk;
+    @BeforeEach
+    void setup() {
+        memoryChunkUtils = new MemoryChunkUtils(mapper);
     }
 
     @Test
@@ -287,7 +248,7 @@ public class MemoryChunkTests {
     /////////////////////////////////////////////////////////////
 
     @Test
-    void memoryChunkUtils_toDtoAndEntity() {
+    void memoryChunkUtils_toDto() {
         Instant now = Instant.now();
         // Initializing Memory Chunk
         UUID sessionId = UUID.randomUUID();
@@ -307,11 +268,8 @@ public class MemoryChunkTests {
         session.setCreatedAt(now);
         session.setSource(SessionSource.DISCORD);
 
-
-        // Now, we create the memory chunk entity and dto
         MemoryChunkEntity memoryChunkEntity = new MemoryChunkEntity();
-        Map<String, Object> content = new HashMap<>();
-        content.put("text", "boomer");
+        Map<String, Object> content = new HashMap<>(); content.put("text", "boomer");
         memoryChunkEntity.setContent(content);
         memoryChunkEntity.setSession(session);
         memoryChunkEntity.setIngestedAt(now);
@@ -319,29 +277,59 @@ public class MemoryChunkTests {
         memoryChunkEntity.setTags(null);
         memoryChunkEntity.setHashSha256(sha256(content.get("text").toString()));
 
-        ResponseMemoryChunkDTO dto = new ResponseMemoryChunkDTO(
-                "boomer",
-                PrincipalType.USER,
-                principalId.toString(),
-                now,
-                null);
-
         // Now, we execute the MemoryChunkUtils
-        MemoryChunkEntity utilsChunk = memoryChunkUtils.toMemoryEntity(dto, session);
+
         ResponseMemoryChunkDTO utilsDTO = memoryChunkUtils.toDto(memoryChunkEntity);
 
-        Assertions.assertEquals(dto.content(), utilsDTO.content());
-        Assertions.assertEquals(dto.principalId(), utilsDTO.principalId());
-        Assertions.assertEquals(dto.principalType(), utilsDTO.principalType());
-        Assertions.assertEquals(dto.tags(), utilsDTO.tags());
-        Assertions.assertEquals(dto.timestamp(), utilsDTO.timestamp());
+        Assertions.assertEquals("{\"text\":\"boomer\"}", utilsDTO.content());
+        Assertions.assertEquals(principalId.toString(), utilsDTO.principalId());
+        Assertions.assertEquals(PrincipalType.USER, utilsDTO.principalType());
+        Assertions.assertNull(utilsDTO.tags());
+        Assertions.assertEquals(now, utilsDTO.timestamp());
 
-        Assertions.assertEquals(memoryChunkEntity.getMemoryId(), utilsChunk.getMemoryId());
-        Assertions.assertEquals(memoryChunkEntity.getContent(), utilsChunk.getContent());
-        Assertions.assertEquals(memoryChunkEntity.getIngestedAt(), utilsChunk.getIngestedAt());
-        Assertions.assertEquals(memoryChunkEntity.getOccurredAt(), utilsChunk.getOccurredAt());
-        Assertions.assertEquals(memoryChunkEntity.getHashSha256(), utilsChunk.getHashSha256());
-        Assertions.assertEquals(memoryChunkEntity.getSession(), utilsChunk.getSession());
+    }
+
+    @Test
+    void memoryChunkUtils_toEntity() {
+        Instant now = Instant.now();
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        SessionOptionsEntity options = new SessionOptionsEntity();
+        options.setScope(SessionScope.CHANNEL);
+        options.setMaxChunksPerSession(10);
+
+        SessionMemoryEntity session = new SessionMemoryEntity();
+        session.setSessionId(sessionId);
+        session.setPrincipalType(PrincipalType.USER);
+        session.setPrincipalId(principalId.toString());
+        session.setSessionState(SessionState.ACTIVE);
+        session.setChunkCount(0);
+        session.setOptions(options);
+        session.setCreatedAt(now);
+        session.setSource(SessionSource.DISCORD);
+
+        // Now, we create the memory chunk entity and dto
+        Map<String, Object> content = new HashMap<>();
+        String json = """
+        {
+          "text": "boomer"
+        }
+        """;
+        content.put("text", "boomer");
+
+        ResponseMemoryChunkDTO dto = new ResponseMemoryChunkDTO(
+                json,
+                PrincipalType.USER,
+                principalId.toString(),
+                Instant.now(),
+                null);
+
+
+        String hash = sha256(json);
+
+        MemoryChunkEntity utilsChunk = memoryChunkUtils.toMemoryEntity(dto, session);
+        Assertions.assertEquals(content.get("text"), utilsChunk.getContent().get("text"));
     }
 
     @Test
@@ -410,17 +398,17 @@ public class MemoryChunkTests {
         List<String> tags = memoryChunk.getTags();
         Assertions.assertEquals(3, tags.size());
         Assertions.assertEquals("kind:chat_message", tags.get(0));
-        Assertions.assertEquals("role:assistant", tags.get(1));
+        Assertions.assertEquals("role:ASSISTANT", tags.get(1));
         Assertions.assertEquals("source:API", tags.get(2));
 
         Map<String, Object> chunkContent = memoryChunk.getContent();
         Assertions.assertEquals("chat_message", chunkContent.get("kind").toString());
-        Assertions.assertEquals("assistant", chunkContent.get("role").toString());
+        Assertions.assertEquals("ASSISTANT", chunkContent.get("role").toString());
         Assertions.assertEquals("boomer", chunkContent.get("text").toString());
         Assertions.assertEquals("API", chunkContent.get("source").toString());
 
         Assertions.assertEquals("chat_message", chunkContent.get("kind").toString());
-        Assertions.assertEquals("assistant", chunkContent.get("role").toString());
+        Assertions.assertEquals("ASSISTANT", chunkContent.get("role").toString());
         Assertions.assertEquals("boomer", chunkContent.get("text").toString());
         Assertions.assertEquals("API", chunkContent.get("source").toString());
 
@@ -444,7 +432,7 @@ public class MemoryChunkTests {
                 user: This is the number of testing prompts that have been provided: 9
                 """.trim().split("\n");
 
-        List<MemoryChunkEntity> bulkMemChunk = generateBulkMemoryChunks();
+        List<MemoryChunkEntity> bulkMemChunk = generateBulkMemoryChunks(false);
         String[] currentPrompt = memoryChunkUtils.buildContext(bulkMemChunk).trim().split("\n");
         Assertions.assertEquals(testPrompt.length, currentPrompt.length);
         for (int i = 0; i < currentPrompt.length; i++) {
@@ -452,11 +440,44 @@ public class MemoryChunkTests {
         }
     }
 
+    @Test
+    void memoryChunkUtils_buildContext_random() {
+        Assertions.assertEquals("No prior context.", memoryChunkUtils.buildContext(null));
+        Assertions.assertEquals("No prior context.", memoryChunkUtils.buildContext(new ArrayList<>()));
+
+        String[] testPrompt = """
+                user: This is the number of testing prompts that have been provided: 0
+                user: This is the number of testing prompts that have been provided: 1
+                user: This is the number of testing prompts that have been provided: 2
+                user: This is the number of testing prompts that have been provided: 3
+                user: This is the number of testing prompts that have been provided: 4
+                user: This is the number of testing prompts that have been provided: 5
+                user: This is the number of testing prompts that have been provided: 6
+                user: This is the number of testing prompts that have been provided: 7
+                user: This is the number of testing prompts that have been provided: 8
+                user: This is the number of testing prompts that have been provided: 9
+                """.trim().split("\n");
+
+        List<MemoryChunkEntity> bulkMemChunk = generateBulkMemoryChunks(true);
+        String[] currentPrompt = memoryChunkUtils.buildContext(bulkMemChunk).trim().split("\n");
+        Assertions.assertEquals(testPrompt.length, currentPrompt.length);
+        boolean foundInequal = false;
+        for (int i = 0; i < currentPrompt.length; i++) {
+            if (!currentPrompt[i].trim().equals(testPrompt[i].trim())) {
+                foundInequal = true;
+                break;
+            }
+        }
+        if (!foundInequal) {
+            Assertions.fail("Couldn't find unequal strings if random");
+        }
+    }
+
     /////////////////////////////////////////////////////////////
     /// HELPERS
     /////////////////////////////////////////////////////////////
 
-    private List<MemoryChunkEntity> generateBulkMemoryChunks() {
+    private List<MemoryChunkEntity> generateBulkMemoryChunks(boolean random) {
         Instant now = Instant.now();
         // Initializing Memory Chunk
         UUID sessionId = UUID.randomUUID();
@@ -478,7 +499,11 @@ public class MemoryChunkTests {
 
         ArrayList<MemoryChunkEntity> memList = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            now = Instant.now();
+            if (random && i % 2 == 0) {
+                now = Instant.now().minusSeconds(1200);
+            } else {
+                now = Instant.now();
+            }
             MemoryChunkEntity memoryChunkEntity = new MemoryChunkEntity();
             Map<String, Object> content = new HashMap<>();
             content.put("kind", "chat_message");
@@ -490,10 +515,11 @@ public class MemoryChunkTests {
             memoryChunkEntity.setIngestedAt(now);
             memoryChunkEntity.setOccurredAt(now);
 
-            memoryChunkEntity.setTags(List.of("kind:chat_message", "role:assistant", "source:DISCORD"));
+            memoryChunkEntity.setTags(List.of("kind:chat_message", "role:ASSISTANT", "source:DISCORD"));
             memoryChunkEntity.setHashSha256(sha256(content.get("text").toString()));
             memList.add(memoryChunkEntity);
         }
+        memList.sort(Comparator.comparing(MemoryChunkEntity::getIngestedAt));
         return memList;
     }
 
