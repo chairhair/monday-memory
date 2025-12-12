@@ -43,7 +43,7 @@ public class SessionService {
         }
         PrincipalType principalType = principal.getPrincipalType();
         String principalId = (principal.getPrincipalId() != null) ? principal.getPrincipalId().toString() : null;
-        String currentIdempotencyKey = null;
+        String currentIdempotencyKey = idempotencyKey;
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             currentIdempotencyKey = UUID.randomUUID().toString();
         }
