@@ -132,6 +132,10 @@ public class MemoryService {
                 if (existing.getSessionState() != SessionState.ACTIVE) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot append memory to closed session");
                 }
+                if (!Objects.equals(existing.getPrincipalId(), principal.getPrincipalId().toString())
+                    || existing.getPrincipalType() != principal.getPrincipalType()) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User and Principal did not match up");
+                }
 
                 // This is the freshest version of our user entity. Thus, we should represent it as so
                 UserPlanEntity userPlanEntity = existing.getUser() == null ? null : existing.getUser().getUserPlan();
