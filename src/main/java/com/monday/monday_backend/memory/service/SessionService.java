@@ -2,15 +2,17 @@ package com.monday.monday_backend.memory.service;
 
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
+import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.entity.SessionOptionsEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
+import com.monday.monday_backend.memory.utils.MemoryChunkUtils;
+import com.monday.shared.memory.dto.RecallRequestDTO;
+import com.monday.shared.memory.dto.RecallResponseDTO;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
-import com.monday.shared.memory.session.utils.PrincipalType;
-import com.monday.shared.memory.session.utils.SessionScope;
-import com.monday.shared.memory.session.utils.SessionState;
+import com.monday.shared.memory.session.utils.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,7 +31,42 @@ import java.util.UUID;
 public class SessionService {
 
     private final SessionMemoryRepository sessionMemoryRepository;
-    private final GuestService guestService;
+    private final MemoryAggregationService memoryAggregationService;
+    private final MemoryChunkUtils memoryChunkUtils;
+
+    public RecallResponseDTO recallSessionInfo(PrincipalContext principal, RecallRequestDTO request) {
+        SessionMemoryEntity session = getSessionPresent(request.sessionId(), principal, false);
+        if (session == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
+
+        // 2. Ownership / principal check (mirror what you do in MemoryService)
+        if (session.getPrincipalType() != principal.getPrincipalType()
+                || (session.getPrincipalId() != null
+                && principal.getPrincipalId() != null
+                && !session.getPrincipalId().equals(principal.getPrincipalId().toString()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Principal cannot recall a session they do not own");
+        }
+
+        // 3. Build aggregation options (MVP: just LAST_N using session options)
+        SessionOptionsEntity opts = session.getOptions();
+        MemoryAggregationOptions options = MemoryAggregationOptions.builder()
+                .mode(request.mode() != null ? request.mode() : MemoryAggregationMode.LAST_N)
+                .maxChunks(request.maxChunks() != null ? request.maxChunks() : opts.getMaxChunksPerSession())
+                .since(request.since())
+                .until(request.until())
+                .build();
+
+        // 4. Aggregate + build context
+        List<MemoryChunkEntity> chunks = memoryAggregationService.aggregate(session, options);
+        String context = memoryChunkUtils.buildContext(chunks);
+
+        return new RecallResponseDTO(
+                context,
+                chunks.size(),
+                session.getSessionId()
+        );
+    }
 
     /**
      * Create or reuse an ACTIVE session for the given principal.
@@ -53,6 +91,7 @@ public class SessionService {
             entity.setPrincipalType(principalType);
             entity.setPrincipalId(principalId);
             entity.setSource(request.source());
+            entity.setScope(request.scope());
             entity.setSessionState(SessionState.ACTIVE);
             entity.setSourceConversation(request.sourceConversationKey());
             entity.setIdempotencyKey(currentIdempotencyKey);

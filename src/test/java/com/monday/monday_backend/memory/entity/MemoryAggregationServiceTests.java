@@ -117,7 +117,7 @@ public class MemoryAggregationServiceTests {
         Instant now = Instant.now();
         SessionOptionsEntity options = new SessionOptionsEntity();
         options.setScope(SessionScope.CHANNEL);
-        options.setMaxChunksPerSession(10);
+        options.setMaxChunksPerSession(5);
 
         UUID sessionId = UUID.randomUUID();
         UUID principalId = UUID.randomUUID();
@@ -186,8 +186,9 @@ public class MemoryAggregationServiceTests {
         userSession.setSource(SessionSource.DISCORD);
 
         MemoryAggregationOptions option = MemoryAggregationOptions.builder()
-                .mode(MemoryAggregationMode.LAST_N)
-                .maxChunks(5)
+                .mode(MemoryAggregationMode.SINCE_TIME)
+                .since(now.plusSeconds(10*60))
+                .maxChunks(100)
                 .build();
 
         List<MemoryChunkEntity> memList = new ArrayList<>();
@@ -214,27 +215,61 @@ public class MemoryAggregationServiceTests {
             memList.add(userMem);
         }
 
-        when(memoryChunkRepository.findBySessionOrderByOccurredAtAsc(eq(userSession), eq(PageRequest.of(0, 5)))).thenReturn(memList.subList(0, 5));
+        when(memoryChunkRepository.findBySessionAndOccurredAtAfter(eq(userSession), eq(now.plusSeconds(10*60)), any())).thenReturn(memList.subList(0, 7));
 
 
-        List<MemoryChunkEntity> rawList = memoryAggregationService.aggregateByNumber(userSession, 5);
-        Assertions.assertEquals(5, rawList.size());
-        Assertions.assertEquals("boomer 0", rawList.get(0).getContent().get("text"));
+        List<MemoryChunkEntity> rawList = memoryAggregationService.aggregateByTime(userSession, now.plusSeconds(10*60), 100);
+        Assertions.assertEquals(7, rawList.size());
 
         rawList = memoryAggregationService.aggregate(userSession, option);
 
-        Assertions.assertEquals(5, rawList.size());
-        Assertions.assertEquals("boomer 0", rawList.get(0).getContent().get("text"));
-    }
+        Assertions.assertEquals(7, rawList.size());
 
-    @Test
-    void aggregate_invalidMode() {
+        MemoryAggregationOptions badOptionsOne = MemoryAggregationOptions.builder()
+                .mode(MemoryAggregationMode.SINCE_TIME)
+                .since(null)
+                .maxChunks(100)
+                .build();
 
+        // This will fail because we're expecting to have a "since" column (which we'll add)
+        Assertions.assertThrows(IllegalArgumentException.class, () -> memoryAggregationService.aggregate(userSession, badOptionsOne));
+
+        MemoryAggregationOptions badOptionsTwo = MemoryAggregationOptions.builder()
+                .mode(MemoryAggregationMode.SINCE_TIME)
+                .since(now)
+                .maxChunks(null)
+                .build();
+        Assertions.assertThrows(IllegalArgumentException.class, () -> memoryAggregationService.aggregate(userSession, badOptionsTwo));
     }
 
     @Test
     void aggregate_MissingFields_throws() {
+        Instant now = Instant.now();
+        UUID sessionId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
 
+        SessionOptionsEntity seshOptions = new SessionOptionsEntity();
+        seshOptions.setScope(SessionScope.CHANNEL);
+        seshOptions.setMaxChunksPerSession(10);
+
+        MemoryAggregationOptions options = MemoryAggregationOptions.builder()
+                .mode(MemoryAggregationMode.SINCE_TIME)
+                .maxChunks(5)
+                .build();
+
+        SessionMemoryEntity userSession = new SessionMemoryEntity();
+        userSession.setSessionId(sessionId);
+        userSession.setPrincipalType(PrincipalType.USER);
+        userSession.setPrincipalId(principalId.toString());
+        userSession.setSessionState(SessionState.ACTIVE);
+        userSession.setChunkCount(0);
+        userSession.setOptions(seshOptions);
+        userSession.setCreatedAt(now);
+        userSession.setSource(SessionSource.DISCORD);
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> memoryAggregationService.aggregate(null, null));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> memoryAggregationService.aggregate(null, options));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> memoryAggregationService.aggregate(userSession, null));
     }
 
     private String normalize(String text) {

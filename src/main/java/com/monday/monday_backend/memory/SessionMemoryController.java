@@ -6,8 +6,11 @@ import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.auth.users.helper.PrincipalEntry;
 import com.monday.monday_backend.memory.service.MemoryService;
 import com.monday.monday_backend.memory.service.SessionService;
+import com.monday.shared.memory.dto.RecallRequestDTO;
+import com.monday.shared.memory.dto.RecallResponseDTO;
 import com.monday.shared.memory.dto.RequestMemoryChunkDTO;
 import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
+import com.monday.shared.memory.session.GuestHandle;
 import com.monday.shared.memory.session.dto.*;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
@@ -96,6 +99,17 @@ public class SessionMemoryController {
                 UUID.fromString(updateRequestDTO.sessionId()),
                 principal
         );
+    }
+
+    @PostMapping("/recall")
+    public RecallResponseDTO recallSession(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestBody RecallRequestDTO requestDTO
+            ) {
+        PrincipalContext principal = principalResolver.resolve(authUser, new GuestHandle(requestDTO.sessionId().toString(), requestDTO.sourceToGuestSource()));
+        principal.validateShape();
+
+        return sessionService.recallSessionInfo(principal, requestDTO);
     }
 
     @PostMapping("/list")

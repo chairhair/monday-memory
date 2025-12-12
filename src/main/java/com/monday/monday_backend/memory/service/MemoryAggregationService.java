@@ -27,8 +27,14 @@ public class MemoryAggregationService {
             SessionMemoryEntity session,
             MemoryAggregationOptions options
     ) {
+        if (options == null) {
+            throw new IllegalArgumentException("Cannot have null options");
+        }
         if (options.getMode() == null) {
             throw new IllegalArgumentException("AggregationOptions.mode must not be null");
+        }
+        if (session == null) {
+            throw new IllegalArgumentException("Session must not be null");
         }
         return switch (options.getMode()) {
             case RAW -> aggregateByRaw(session);
@@ -41,7 +47,7 @@ public class MemoryAggregationService {
             case SINCE_TIME -> aggregateByTime(
                     session,
                     requireNonNull(options.getSince(), "since"),
-                    options.getMaxChunks()
+                    requireNonNull(options.getMaxChunks(), "maxChunks")
             );
 
             case DATE_RANGE -> aggregateByDateRange(
