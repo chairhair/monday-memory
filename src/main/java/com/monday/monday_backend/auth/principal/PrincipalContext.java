@@ -2,7 +2,6 @@ package com.monday.monday_backend.auth.principal;
 
 import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.users.UserEntity;
-import com.monday.monday_backend.memory.entity.SessionOptionsEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.llm.RecallScope;

@@ -10,6 +10,7 @@ import com.monday.monday_backend.communication.entity.UserExternalAccount;
 import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
+import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
 import com.monday.shared.auth.dto.*;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.session.utils.PrincipalType;
@@ -35,7 +36,9 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
+
     private final SessionMemoryRepository sessionMemoryRepository;
+
     private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
     private final static Logger log = LoggerFactory.getLogger(UserService.class);
