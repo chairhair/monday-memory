@@ -7,6 +7,7 @@ import com.monday.shared.memory.session.utils.SessionState;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +16,8 @@ public interface SessionMemoryRepository extends JpaRepository<SessionMemoryEnti
     Optional<SessionMemoryEntity> findByPrincipalIdAndIdempotencyKey(String principalId, String idempotencyKey);
 
     Optional<SessionMemoryEntity> findBySessionIdAndPrincipalTypeAndPrincipalId(UUID sessionId, PrincipalType principalType, String principalId);
+
+    List<SessionMemoryEntity> findByPrincipalTypeAndPrincipalId(PrincipalType principalType, String principalId);
 
     Optional<SessionMemoryEntity> findBySourceAndSourceConversationAndPrincipalTypeAndPrincipalIdAndIdempotencyKeyAndSessionState(
             SessionSource source,

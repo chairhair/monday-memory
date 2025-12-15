@@ -8,11 +8,11 @@ import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.validation.ValidationUtils;
 import com.monday.monday_backend.communication.entity.UserExternalAccount;
 import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
-import com.monday.shared.auth.dto.ExternalLoginRequestDTO;
-import com.monday.shared.auth.dto.UserRequestDTO;
-import com.monday.shared.auth.dto.UserResponseDTO;
-import com.monday.shared.auth.dto.UserSearchRequestDTO;
+import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
+import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
+import com.monday.shared.auth.dto.*;
 import com.monday.shared.auth.utils.AccessLevel;
+import com.monday.shared.memory.session.utils.PrincipalType;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,10 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -38,6 +35,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
+    private final SessionMemoryRepository sessionMemoryRepository;
     private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
     private final static Logger log = LoggerFactory.getLogger(UserService.class);
@@ -100,6 +98,17 @@ public class UserService {
                 user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()),
                 tokens);
         }).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public IdentityResponseDTO identity(ExternalLoginRequestDTO externalLoginRequestDTO) {
+        Optional<UserExternalAccount> findExternalAccount = userExternalAccountRepository.findByProviderAndExternalId(externalLoginRequestDTO.provider(), externalLoginRequestDTO.externalId());
+        if (findExternalAccount.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "External Login Request doesn't exist");
+        }
+        UserEntity userEntity = findExternalAccount.get().getUser();
+        List<UUID> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, userEntity.getUserId().toString()).stream().map(SessionMemoryEntity::getSessionId).toList();
+        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds);
     }
 
     @Transactional

@@ -44,11 +44,6 @@ public class SessionMemoryController {
     private final MemoryService memoryService;
     private final SessionService sessionService;    // Incorporated for quick Entity retrievals
 
-    @PostMapping("/memory")
-    public SessionMemoryResponseDTO createMemory(@RequestBody SessionMemoryRequestDTO memoryRequestDTO) {
-        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "API not implemented yet");
-    }
-
     /**
      * Start or reuse a session for the authenticated user.
      * Idempotency is handled via the X-Idempotency-Key header.

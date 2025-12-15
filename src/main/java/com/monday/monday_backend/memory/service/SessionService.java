@@ -1,12 +1,10 @@
 package com.monday.monday_backend.memory.service;
 
-import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.entity.SessionOptionsEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
-import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
 import com.monday.monday_backend.memory.utils.MemoryChunkUtils;
 import com.monday.shared.memory.dto.RecallRequestDTO;
 import com.monday.shared.memory.dto.RecallResponseDTO;

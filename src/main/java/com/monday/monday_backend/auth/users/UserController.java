@@ -1,9 +1,6 @@
 package com.monday.monday_backend.auth.users;
 
-import com.monday.shared.auth.dto.ExternalLoginRequestDTO;
-import com.monday.shared.auth.dto.UserRequestDTO;
-import com.monday.shared.auth.dto.UserResponseDTO;
-import com.monday.shared.auth.dto.UserSearchRequestDTO;
+import com.monday.shared.auth.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,9 +33,20 @@ public class UserController {
         return userService.retrieveUsers(userSearchRequestDTO);
     }
 
+    @PostMapping("/identity")
+    public IdentityResponseDTO getIdentity(@RequestBody ExternalLoginRequestDTO externalRequestDTO) {
+        return userService.identity(externalRequestDTO);
+    }
+
     @PostMapping("/login")
     public UserResponseDTO login(@RequestBody ExternalLoginRequestDTO externalRequestDTO) {
         return userService.loginUser(externalRequestDTO);
     }
+
+    @PostMapping("/logout")
+    public UserResponseDTO logout(@RequestBody ExternalLoginRequestDTO externalLoginRequestDTO) {
+        return null;
+    }
+
 
 }
