@@ -140,8 +140,14 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "External Login Request doesn't exist");
         }
         UserEntity userEntity = findExternalAccount.get().getUser();
+        UserPreferencesDTO options = new UserPreferencesDTO(
+                userEntity.getUserPreferences().getScope(),
+                userEntity.getUserPreferences().getCommScope(),
+                userEntity.getUserPreferences().getMaxChunksPerSession(),
+                userEntity.getUserPreferences().getMaxTokensPerSession()
+        );
         List<UUID> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, userEntity.getUserId().toString()).stream().map(SessionMemoryEntity::getSessionId).toList();
-        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds);
+        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds, options);
     }
 
     @Transactional
