@@ -83,6 +83,11 @@ public class SessionMemoryController {
         );
     }
 
+    @GetMapping("/session-search?sessionId={sessionId}")
+    public SessionMemoryResponseDTO searchSession(@RequestParam("sessionId") String sessionId) {
+        return sessionService.getSession(UUID.fromString(sessionId));
+    }
+
     @PutMapping("/stop-session")
     public SessionMemoryResponseDTO stopSession(
             @AuthenticationPrincipal AuthUser authUser,

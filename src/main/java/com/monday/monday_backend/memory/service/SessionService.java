@@ -8,6 +8,7 @@ import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.utils.MemoryChunkUtils;
 import com.monday.shared.memory.dto.RecallRequestDTO;
 import com.monday.shared.memory.dto.RecallResponseDTO;
+import com.monday.shared.memory.dto.ResponseMemoryChunkDTO;
 import com.monday.shared.memory.session.dto.CreateSessionRequestDTO;
 import com.monday.shared.memory.session.dto.SessionMemoryResponseDTO;
 import com.monday.shared.memory.session.utils.*;
@@ -187,6 +188,29 @@ public class SessionService {
 
         return null;
     }
+
+    public SessionMemoryResponseDTO getSession(UUID sessionId) {
+        return sessionMemoryRepository.findBySessionId(sessionId).map(x->
+                new SessionMemoryResponseDTO(
+                        HttpStatus.OK,
+                        x.getScope(),
+                        "Found the session",
+                        List.of(x.getSessionId().toString()),
+                        null,
+                        null,
+                        null,
+                        x.getChunks().stream().map(y->
+                                new ResponseMemoryChunkDTO(
+                                        y.getContent() != null ? y.getContent().get("text").toString() : null,
+                                        x.getPrincipalType(),
+                                        x.getPrincipalId(),
+                                        y.getOccurredAt(),
+                                        y.getTags()
+                                )).toList(),
+                        null)).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Couldn't find the Session"));
+    }
+
+
 
     /**
      * Updates the session chunk count
