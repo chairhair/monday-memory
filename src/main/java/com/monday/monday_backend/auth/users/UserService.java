@@ -70,12 +70,12 @@ public class UserService {
             );
         }
 
-        List<String> sessionIds;
+        List<UUID> sessionIds;
 
         if (existing != null) {
             sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, dto.principalKey())
                     .stream()
-                    .map(x->x.getSessionId().toString()).toList();
+                    .map(SessionMemoryEntity::getSessionId).toList();
             Optional<UserEntity> potentialDuplicates = userRepository.findByEmail(dto.emailAddress());
             if (potentialDuplicates.isPresent() && potentialDuplicates.get().getUserId() != existing.getUserId()) {
                 return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email already found.");
@@ -108,7 +108,7 @@ public class UserService {
 
         sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, dto.principalKey())
                 .stream()
-                .map(x->x.getSessionId().toString()).toList();
+                .map(SessionMemoryEntity::getSessionId).toList();
 
         return UserResponseDTO.successfulDTO(newUser.getUserId(), sessionIds, newUser.getEmail(), Set.of(AccessLevel.USER), new HashSet<>(), userPreferencesDTO);
     }
@@ -125,9 +125,9 @@ public class UserService {
         Page<UserEntity> userPage = userRepository.findByIdIn(userSearchRequestDTO.userIds(), userSearchRequestDTO.toPageable());
 
         return userPage.get().map(user -> {
-            List<String> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, user.getUserId().toString())
+            List<UUID> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, user.getUserId().toString())
                     .stream()
-                    .map(x->x.getSessionId().toString()).toList();
+                    .map(SessionMemoryEntity::getSessionId).toList();
             UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
             UserPreferencesEntity prefs = user.getUserPreferences();
             Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
@@ -169,12 +169,12 @@ public class UserService {
         UserEntity user;
         Instant now = Instant.now();
         Set<RolesEntity> setOfRoles;
-        List<String> sessionIds;
+        List<UUID> sessionIds;
         if (findExternalAccount.isEmpty()) {
             try {
                 sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, externalLoginRequestDTO.externalId())
                         .stream()
-                        .map(x->x.getSessionId().toString()).toList();
+                        .map(SessionMemoryEntity::getSessionId).toList();
                 // If the account is empty, chances are it hasn't been created yet and should be.
                 UserExternalAccount externalAccount = new UserExternalAccount();
                 setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
@@ -198,7 +198,7 @@ public class UserService {
         if (user == null) {
             sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, externalLoginRequestDTO.externalId())
                     .stream()
-                    .map(x->x.getSessionId().toString()).toList();
+                    .map(SessionMemoryEntity::getSessionId).toList();
             // If we can't find a user, we must log it and save it
             setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
             try {
@@ -215,7 +215,7 @@ public class UserService {
         }
         sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, user.getUserId().toString())
                 .stream()
-                .map(x->x.getSessionId().toString()).toList();
+                .map(SessionMemoryEntity::getSessionId).toList();
         UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
         Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
         UserPreferencesDTO options = new UserPreferencesDTO(
