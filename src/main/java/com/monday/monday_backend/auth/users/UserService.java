@@ -47,14 +47,15 @@ public class UserService {
 
     @Transactional
     public UserResponseDTO upsertUser(UserRequestDTO dto) {
-        if (!ValidationUtils.isEmailLegitimate(dto.emailAddress()) || !ValidationUtils.isPasswordLegitimate(dto.password())) {
-            return UserResponseDTO.failedDTO(HttpStatus.UNAUTHORIZED, "Username or passwords are not valid");
-        }
         UserEntity existing = null;
-        if (dto.uuid() != null) {
-            existing = userRepository.findById(dto.uuid()).orElse(null); //
+        UUID availableUUID = null;
+        try {
+            availableUUID = UUID.fromString(dto.principalKey());
+        } catch (Exception ignored) {}
+        if (availableUUID != null) {
+            existing = userRepository.findById(availableUUID).orElse(null); //
         }
-        if (dto.uuid() == null || existing == null){
+        if ((availableUUID == null || existing == null) && dto.emailAddress() != null) {
             existing = userRepository.findByEmail(dto.emailAddress()).orElse(null);
         }
 
@@ -69,7 +70,12 @@ public class UserService {
             );
         }
 
+        List<String> sessionIds;
+
         if (existing != null) {
+            sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, dto.principalKey())
+                    .stream()
+                    .map(x->x.getSessionId().toString()).toList();
             Optional<UserEntity> potentialDuplicates = userRepository.findByEmail(dto.emailAddress());
             if (potentialDuplicates.isPresent() && potentialDuplicates.get().getUserId() != existing.getUserId()) {
                 return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email already found.");
@@ -87,12 +93,12 @@ public class UserService {
             Set<AccessLevel> rolesPresent = existing.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet());
             Set<String> tokensList = userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
 
-            return UserResponseDTO.successfulDTO(userEntity.getEmail(), rolesPresent, tokensList, userPreferencesDTO);
+            return UserResponseDTO.successfulDTO(userEntity.getUserId(), sessionIds, userEntity.getEmail(), rolesPresent, tokensList, userPreferencesDTO);
         }
 
         RolesEntity rolesEntity = rolesRepository.findByAccessLevel(AccessLevel.USER).orElseThrow(() -> new RuntimeException("Default role USER not found"));
 
-        UserEntity newUser = saveUser(dto.emailAddress(), passwordEncoder.encode(dto.password()), Set.of(rolesEntity));
+        UserEntity newUser = saveUser(dto.emailAddress(), Set.of(rolesEntity));
 
         // Now we have to pass in the user credentials
         UserCredentialsEntity userCredentials = new UserCredentialsEntity();
@@ -100,13 +106,15 @@ public class UserService {
         userCredentials.setUser(newUser);
         userCredentialsRepository.save(userCredentials);
 
+        sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, dto.principalKey())
+                .stream()
+                .map(x->x.getSessionId().toString()).toList();
 
-
-        return UserResponseDTO.successfulDTO(newUser.getEmail(), Set.of(AccessLevel.USER), new HashSet<>(), userPreferencesDTO);
+        return UserResponseDTO.successfulDTO(newUser.getUserId(), sessionIds, newUser.getEmail(), Set.of(AccessLevel.USER), new HashSet<>(), userPreferencesDTO);
     }
 
     @Transactional
-    public void deleteUsers(List<Long> uuids) {
+    public void deleteUsers(List<UUID> uuids) {
         List<UserEntity> usersToDelete = userRepository.findAllById(uuids);
         log.info("Deleting users: {}", usersToDelete.stream().map(UserEntity::getEmail).toList());
         userRepository.deleteAll(usersToDelete);
@@ -117,10 +125,15 @@ public class UserService {
         Page<UserEntity> userPage = userRepository.findByIdIn(userSearchRequestDTO.userIds(), userSearchRequestDTO.toPageable());
 
         return userPage.get().map(user -> {
+            List<String> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, user.getUserId().toString())
+                    .stream()
+                    .map(x->x.getSessionId().toString()).toList();
             UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
             UserPreferencesEntity prefs = user.getUserPreferences();
             Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
             return UserResponseDTO.successfulDTO(
+                user.getUserId(),
+                sessionIds,
                 user.getEmail(),
                 user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()),
                 tokens,
@@ -156,18 +169,22 @@ public class UserService {
         UserEntity user;
         Instant now = Instant.now();
         Set<RolesEntity> setOfRoles;
+        List<String> sessionIds;
         if (findExternalAccount.isEmpty()) {
             try {
+                sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, externalLoginRequestDTO.externalId())
+                        .stream()
+                        .map(x->x.getSessionId().toString()).toList();
                 // If the account is empty, chances are it hasn't been created yet and should be.
                 UserExternalAccount externalAccount = new UserExternalAccount();
                 setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
-                user = saveUser(null, null, setOfRoles);
+                user = saveUser(null, setOfRoles);
                 externalAccount.setUser(user);
                 externalAccount.setProvider(externalLoginRequestDTO.provider());
                 externalAccount.setExternalId(externalLoginRequestDTO.externalId());
                 externalAccount.setCreatedAt(now);
                 userExternalAccountRepository.save(externalAccount);
-                return UserResponseDTO.successfulDTO(null, Set.of(AccessLevel.GUEST), null, new UserPreferencesDTO(
+                return UserResponseDTO.successfulDTO(null, sessionIds, null, Set.of(AccessLevel.GUEST), null, new UserPreferencesDTO(
                         SessionScope.CHANNEL,
                         RecordingScope.PRIVATE,
                         10,
@@ -179,20 +196,26 @@ public class UserService {
         }
         user = findExternalAccount.get().getUser();
         if (user == null) {
+            sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, externalLoginRequestDTO.externalId())
+                    .stream()
+                    .map(x->x.getSessionId().toString()).toList();
             // If we can't find a user, we must log it and save it
             setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
             try {
-                saveUser(null, null, setOfRoles);
+                saveUser(null, setOfRoles);
             } catch (DataIntegrityViolationException dVE) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not create the account: "+dVE);
             }
-            return UserResponseDTO.successfulDTO(null, Set.of(AccessLevel.GUEST), null, new UserPreferencesDTO(
+            return UserResponseDTO.successfulDTO(null, sessionIds, null, Set.of(AccessLevel.GUEST), null, new UserPreferencesDTO(
                     SessionScope.CHANNEL,
                     RecordingScope.PRIVATE,
                     10,
                     1000
             ));
         }
+        sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, user.getUserId().toString())
+                .stream()
+                .map(x->x.getSessionId().toString()).toList();
         UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
         Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
         UserPreferencesDTO options = new UserPreferencesDTO(
@@ -201,14 +224,17 @@ public class UserService {
                 user.getUserPreferences().getMaxChunksPerSession(),
                 user.getUserPreferences().getMaxTokensPerSession()
         );
-        return UserResponseDTO.successfulDTO(user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), tokens, options);
+        return UserResponseDTO.successfulDTO(user.getUserId(), sessionIds, user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), tokens, options);
     }
 
 
-    private UserEntity saveUser(String email, String Password, Set<RolesEntity> roles) throws DataIntegrityViolationException {
+    private UserEntity saveUser(String email, Set<RolesEntity> roles) throws DataIntegrityViolationException {
         UserEntity user = new UserEntity();
-        user.addRole(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
-        user.setEmail(null);
+        user.addRole(rolesRepository.findByAccessLevel(AccessLevel.USER).orElseThrow(() -> new RuntimeException("Default role USER not found")));
+        for (RolesEntity role : roles) {
+            user.addRole(role);
+        }
+        user.setEmail(email);
         userRepository.save(user);
         return user;
     }

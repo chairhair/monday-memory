@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  *
@@ -24,7 +25,7 @@ public class UserController {
     }
 
     @DeleteMapping
-    public void deleteUser(@RequestParam(required = true) List<Long> uuids) {
+    public void deleteUser(@RequestParam(required = true) List<UUID> uuids) {
         userService.deleteUsers(uuids);
     }
 
