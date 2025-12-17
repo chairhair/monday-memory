@@ -32,10 +32,35 @@ public class AnalyticsEventEntity {
     private UserEntity user;
 
     @Setter
-    @Column(name = "guest_key")
-    private String guestKey;
+    @Column(name = "principal_key")
+    private String principalKey;
+
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "principal_type")
+    private String principalType;
+
+    @Setter
+    @Column(name = "session_id")
+    private String sessionId;
+
+    @Setter
+    @Column(name = "http_result")
+    private Integer httpResult;
+
+    @Setter
+    @Column(name = "error_code")
+    private String errorCode;
+
+    @Setter
+    @Column(name = "latency_ms")
+    private Long latencyMs;
 
     @Setter
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Setter
+    @Column(name = "occurred_at", nullable = false)
+    private Instant occurredAt;
 }
