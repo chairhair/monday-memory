@@ -107,6 +107,11 @@ sudo systemctl start docker
 
 Otherwise, install Docker-Desktop, Enable WSL integration, and BAM you're done
 
+## How to generate a secret
+
+Basically just run this:
+
+`openssl rand -hex 32`
 
 ## How to turn on HTTPS for MM Backend
 
