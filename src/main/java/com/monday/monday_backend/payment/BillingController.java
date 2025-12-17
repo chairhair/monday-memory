@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Stripe tells us what happened following our Payment Controller.
+ */
 @RestController
 @RequestMapping("/v1/billing")
 @RequiredArgsConstructor

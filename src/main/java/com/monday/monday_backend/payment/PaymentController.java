@@ -14,6 +14,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
+/**
+ * The Payment controller here focuses on where our money starts to flow
+ * and is USER INITIATED.
+ * - This does not start the subscription
+ * - It just gives us the checkout URL.
+ */
 @RestController
 @RequestMapping("/v1/payments")
 @RequiredArgsConstructor
