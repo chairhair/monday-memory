@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: mm-postgres
+    environment:
+      POSTGRES_DB: mondaymemory
+      POSTGRES_USER: monday
+      POSTGRES_PASSWORD: monday
+    ports:
+      - "5432:5432"
+    volumes:
+      - mm_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mm_pgdata:
+

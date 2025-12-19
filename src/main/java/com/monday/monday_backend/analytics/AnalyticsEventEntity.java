@@ -2,6 +2,7 @@ package com.monday.monday_backend.analytics;
 
 import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.shared.analytics.AnalyticsEventName;
+import com.monday.shared.memory.session.utils.PrincipalType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @Getter
 @NoArgsConstructor
+@Entity
 @Table(name = "analytics_event")
 public class AnalyticsEventEntity {
 
@@ -38,7 +40,7 @@ public class AnalyticsEventEntity {
     @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "principal_type")
-    private String principalType;
+    private PrincipalType principalType;
 
     @Setter
     @Column(name = "session_id")

@@ -18,11 +18,16 @@ public class PricePlanEntity {
     @Column(nullable = false, unique = true)
     String code; // e.g. "FREE_DISCORD", "PRO_MONTHLY"
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "stripe_price_id", nullable = false, unique = true)
     String stripePriceId;
 
+    @Column(name = "display_name")
     String displayName;
+
+    @Column(name = "monthly_amount")
     Integer monthlyAmount;   // in cents
+
+    @Column(name = "annual_amount")
     Integer annualAmount;    // in cents
 
     // 🔽 NEW: usage limits for this plan

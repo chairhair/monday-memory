@@ -145,3 +145,14 @@ docker run --name mm-es -p 9200:9200 -e "discovery.type=single-node" -d docker.e
 
 5) Check that you can curl your localhost
    curl -k https://localhost:8443/actuator/health
+
+## To Run Postgres
+
+To set it down, go `docker compose down -v`
+To set it up, go `docker compose up -d`
+
+## To Run the Stripe
+
+1) Download `stripe_1.34.0_linux_x86_64.tar.gz` from the docs
+2) Extract using `tar -xvf stripe_<rest of file>`
+3) Now you can execute it

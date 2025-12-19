@@ -50,7 +50,7 @@ public class UserEntity {
     private UserPlanEntity userPlan;
 
     @Setter
-    @OneToOne(mappedBy = "user_preferences", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private UserPreferencesEntity userPreferences;
 
     @Setter

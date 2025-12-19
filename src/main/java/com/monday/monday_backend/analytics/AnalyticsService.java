@@ -30,7 +30,7 @@ public class AnalyticsService {
             AnalyticsEventEntity analyticsEntity = new AnalyticsEventEntity();
             analyticsEntity.setEventName(event.eventName());
             analyticsEntity.setPrincipalKey(event.principalKey());
-            analyticsEntity.setPrincipalType(event.principalType().toString());
+            analyticsEntity.setPrincipalType(event.principalType());
             analyticsEntity.setSessionId(event.sessionId());
             analyticsEntity.setHttpResult(event.result().value());
             analyticsEntity.setErrorCode(event.errorCode());
