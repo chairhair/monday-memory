@@ -9,6 +9,7 @@ import com.monday.monday_backend.payment.repo.UserPlanRepository;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.session.utils.GuestSource;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GuestService {
@@ -98,10 +100,14 @@ public class GuestService {
         user.setEmail(null); // not linked yet
         user.setLinked(false);
 
+        log.info("Starting shadow user");
+
         // default role(s) – use whatever fits your role model
         var defaultRole = rolesRepository.findByAccessLevel(AccessLevel.USER)
                 .orElseThrow(() -> new IllegalStateException("Default USER role not found"));
         user.addRole(defaultRole); // or setRoles(Set.of(defaultRole))
+
+        log.info("Shadow user created...");
 
         // Plan: default guest/free plan
         UserPlanEntity userPlan = new UserPlanEntity();
