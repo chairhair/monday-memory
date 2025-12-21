@@ -13,7 +13,6 @@ CREATE TABLE tokens_entity (
     expired BOOLEAN NOT NULL DEFAULT false,
     revoked BOOLEAN NOT NULL DEFAULT false,
 
-    CONSTRAINT fk_tokens_user_credentials FOREIGN KEY (user_credentials_id) REFERENCES user_credentials(id)
 );
 
 ALTER TABLE tokens_entity
