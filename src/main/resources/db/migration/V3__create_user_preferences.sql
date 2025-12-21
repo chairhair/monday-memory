@@ -16,7 +16,7 @@ CREATE TABLE user_preferences (
 ALTER TABLE user_preferences
 ADD CONSTRAINT fk_user_preferences
 FOREIGN KEY (user_id)
-REFERENCES users(id)
+REFERENCES users(user_id)
 ON DELETE CASCADE;
 
 -- Helpful index (unique already creates an index, but this is redundant-safe if you ever drop unique)

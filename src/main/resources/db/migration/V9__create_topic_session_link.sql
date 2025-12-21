@@ -29,7 +29,7 @@ CREATE TABLE topic_session_link (
 ALTER TABLE topic_session_link
 ADD CONSTRAINT fk_topic_session_link_user
 FOREIGN KEY (user_id)
-REFERENCES users(id)
+REFERENCES users(user_id)
 ON DELETE CASCADE;
 
 -- Useful indexes

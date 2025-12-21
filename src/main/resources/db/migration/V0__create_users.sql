@@ -24,8 +24,8 @@ CREATE TABLE user_credentials (
     user_id UUID NOT NULL UNIQUE,
 
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at TIMESTAMP NOT NULL DEFAULT now()
+    updated_at TIMESTAMP NOT NULL DEFAULT now(),
 
     CONSTRAINT fk_user_credentials_user
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );

@@ -9,14 +9,14 @@ CREATE TABLE guests (
     guest_key VARCHAR(255) NOT NULL,
     source VARCHAR(32) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    last_seen_at TIMESTAMP NOT NULL DEFAULT now()
+    last_seen_at TIMESTAMP NOT NULL DEFAULT now(),
 
-    CONSTRAINT uk_guest_guest_key UNIQUE (guest_key)
+    CONSTRAINT uk_guest_guest_key UNIQUE (guest_key),
 
-    CONSTRAINT uk_guest_source UNIQUE (source)
+    CONSTRAINT uk_guest_source UNIQUE (source),
 
     CONSTRAINT fk_guests_user
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX ux_guests_guest_key ON guests(guest_key);

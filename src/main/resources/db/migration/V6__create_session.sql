@@ -39,7 +39,7 @@ CREATE TABLE session_memory (
 ALTER TABLE session_memory
 ADD CONSTRAINT fk_session_memory_user
 FOREIGN KEY (user_id)
-REFERENCES users(id)
+REFERENCES users(user_id)
 ON DELETE CASCADE;
 
 -- SessionOptionsEntity is @OneToOne(cascade=ALL, orphanRemoval=true)

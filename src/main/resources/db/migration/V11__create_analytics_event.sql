@@ -25,7 +25,7 @@ CREATE TABLE analytics_event (
 ALTER TABLE analytics_event
 ADD CONSTRAINT fk_analytics_event_user
 FOREIGN KEY (user_id)
-REFERENCES users(id)
+REFERENCES users(user_id)
 ON DELETE CASCADE;
 
 CREATE INDEX idx_analytics_event_user_id     ON analytics_event(user_id);

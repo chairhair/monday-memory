@@ -23,7 +23,7 @@ CREATE TABLE topic (
 ALTER TABLE topic
 ADD CONSTRAINT fk_topic_user
 FOREIGN KEY (user_id)
-REFERENCES users(id)
+REFERENCES users(user_id)
 ON DELETE CASCADE;
 
 -- Indexes per @Table(indexes=...)

@@ -36,7 +36,7 @@ CREATE UNIQUE INDEX ux_options_user_id ON options(user_id);
 ALTER TABLE options
 ADD CONSTRAINT fk_options_user
 FOREIGN KEY (user_id)
-REFERENCES users(id)
+REFERENCES users(user_id)
 ON DELETE CASCADE;
 
 -- =========================
@@ -74,5 +74,3 @@ ALTER TABLE options_session_ids
 ADD CONSTRAINT pk_options_session_ids PRIMARY KEY (option_id, session_id);
 
 CREATE INDEX ix_options_session_ids_session_id ON options_session_ids(session_id);
-
-CREATE UNIQUE INDEX ux_options_user_id ON options(user_id);
