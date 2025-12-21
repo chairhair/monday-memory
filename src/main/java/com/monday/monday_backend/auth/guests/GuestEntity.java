@@ -27,7 +27,7 @@ public class GuestEntity {
     @Id
     @Getter
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(columnDefinition = "uuid")
+    @Column(name = "guest_id", columnDefinition = "uuid")
     private UUID guestId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

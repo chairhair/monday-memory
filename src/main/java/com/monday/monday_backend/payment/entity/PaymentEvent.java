@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -35,7 +34,6 @@ public class PaymentEvent {
     private Instant receivedAt;
 
     @Setter
-    @Lob
-    @Column(name = "payload_json")
+    @Column(name = "payload_json", columnDefinition = "text")
     private String payloadJson;
 }

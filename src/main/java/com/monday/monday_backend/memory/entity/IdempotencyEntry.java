@@ -17,8 +17,7 @@ public class IdempotencyEntry {
     @Column(name = "status_code", nullable = false)
     private Integer statusCode;
 
-    @Lob
-    @Column(name = "response_json")
+    @Column(name = "response_json", columnDefinition = "text")
     private String responseJson;
 
     // keep your timestamp precision/type if you need it

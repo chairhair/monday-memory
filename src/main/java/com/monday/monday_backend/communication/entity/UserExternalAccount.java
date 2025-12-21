@@ -14,7 +14,7 @@ import java.time.Instant;
 public class UserExternalAccount {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Setter

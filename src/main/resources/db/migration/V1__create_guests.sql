@@ -1,8 +1,8 @@
 -- =========================
 -- guests
 -- =========================
-CREATE TABLE guests (
-    guestId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE guest (
+    guest_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- from GuestEntity snippet
     user_id UUID NOT NULL,
@@ -19,5 +19,5 @@ CREATE TABLE guests (
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX ux_guests_guest_key ON guests(guest_key);
-CREATE INDEX ix_guests_user_id ON guests(user_id);
+CREATE UNIQUE INDEX ux_guests_guest_key ON guest(guest_key);
+CREATE INDEX ix_guests_user_id ON guest(user_id);
