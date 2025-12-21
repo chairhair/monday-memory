@@ -20,7 +20,7 @@ public class PlanDefaultsService {
 
     public UserPlanEntity getDefaultGuestPlan() {
         PricePlanEntity guestPricePlan = pricePlanRepository
-                .findByCode("GUEST_FREE")
+                .findByCode("FREE")
                 .orElseThrow(() -> new DataRetrievalFailureException("Could not get basic plan information"));
         UserPlanEntity userPlan = new UserPlanEntity();
         userPlan.setPlan(guestPricePlan);

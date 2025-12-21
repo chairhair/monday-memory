@@ -103,7 +103,7 @@ public class GuestService {
         log.info("Starting shadow user");
 
         // default role(s) – use whatever fits your role model
-        var defaultRole = rolesRepository.findByAccessLevel(AccessLevel.USER)
+        var defaultRole = rolesRepository.findByAccessLevel(AccessLevel.GUEST)
                 .orElseThrow(() -> new IllegalStateException("Default USER role not found"));
         user.addRole(defaultRole); // or setRoles(Set.of(defaultRole))
 

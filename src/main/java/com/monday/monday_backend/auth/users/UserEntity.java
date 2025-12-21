@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -68,7 +69,12 @@ public class UserEntity {
     @PreUpdate
     void preUpdate() { this.updatedAt = Instant.now(); }
 
-    public void addRole(RolesEntity role) { this.roles.add(role); }
+    public void addRole(RolesEntity role) {
+        if (this.roles == null) {
+            this.roles = new HashSet<>();
+        }
+        this.roles.add(role);
+    }
     public boolean isPro() {
         return userPlan != null && userPlan.getPlan() != null
                 && userPlan.getPlan().getCode().startsWith("PRO");
