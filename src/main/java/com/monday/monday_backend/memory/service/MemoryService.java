@@ -197,14 +197,13 @@ public class MemoryService {
         newChunk.setIngestedAt(Instant.now());
         newChunk.setTags(dto.tags());
 
-        Map<String, Object> content = Map.of(
-                "body", dto.content(),
-                "principalType", principalType.name(),
-                "principalId", (principal.getPrincipalId() == null) ? "" : principalId,
-                    "guestKey", principal.getExternalGuestKey(),
-                "source", dto.source().toString(),
-                "sourceConversationKey", dto.sourceConversationKey()
-        );
+        Map<String, Object> content = new HashMap<>();
+        content.put("body", dto.content());
+        content.put("principalType", principalType.name());
+        content.put("principalId", (principal.getPrincipalId() == null) ? "" : principalId);
+        content.put("guestKey", principal.getExternalGuestKey());
+        content.put("source", dto.source().toString());
+        content.put("sourceConversationKey", dto.sourceConversationKey());
 
         // however you're currently serializing to JSON or some column:
         newChunk.setContent(content);

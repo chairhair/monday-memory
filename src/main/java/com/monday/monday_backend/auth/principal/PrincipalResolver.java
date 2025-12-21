@@ -55,7 +55,7 @@ public class PrincipalResolver {
         PrincipalType principalType;
         UUID principalId;
 
-        if (user != null) {
+        if (user != null && user.getRoles().stream().anyMatch(x -> x.getAccessLevel().equals(AccessLevel.ADMIN) || x.getAccessLevel().equals(AccessLevel.USER))) {
             principalType = PrincipalType.USER;
             principalId = user.getUserId();
         } else {
@@ -63,7 +63,7 @@ public class PrincipalResolver {
             principalId = guest.getGuestId();
         }
 
-        AccessLevel accessLevel = (user != null && user.getRoles() != null)
+        AccessLevel accessLevel = user != null
                 ? accessLevelResolver.resolve(user.getRoles())
                 : AccessLevel.GUEST;
 

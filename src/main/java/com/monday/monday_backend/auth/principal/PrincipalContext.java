@@ -71,8 +71,5 @@ public class PrincipalContext {
         if (isUser() && principalId == null) {
             throw new IllegalStateException("USER principal must have non-null principalId");
         }
-        if (isGuest() && principalId != null) {
-            throw new IllegalStateException("GUEST principal must not have principalId");
-        }
     }
 }
