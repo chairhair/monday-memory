@@ -11,7 +11,7 @@ CREATE TABLE tokens_entity (
     access_level VARCHAR(64) NULL,
     time_created TIMESTAMP NOT NULL,
     expired BOOLEAN NOT NULL DEFAULT false,
-    revoked BOOLEAN NOT NULL DEFAULT false,
+    revoked BOOLEAN NOT NULL DEFAULT false
 
 );
 
