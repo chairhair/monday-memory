@@ -6,9 +6,10 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface TokensRepository extends CrudRepository<TokensEntity, Long> {
+public interface TokensRepository extends CrudRepository<TokensEntity, UUID> {
 
     Optional<TokensEntity> findByToken(String token);
 

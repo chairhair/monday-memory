@@ -28,7 +28,7 @@ public class AnalyticsEventEntity {
     private AnalyticsEventName eventName;
 
     @Setter
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, unique = true,
             foreignKey = @ForeignKey(name = "fk_user_preferences"))
     private UserEntity user;

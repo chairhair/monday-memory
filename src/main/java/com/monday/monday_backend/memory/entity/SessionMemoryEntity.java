@@ -31,7 +31,7 @@ public class SessionMemoryEntity {
     @Id
     @Setter(AccessLevel.PACKAGE)
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(columnDefinition = "uuid", length=50)
+    @Column(name = "session_id", columnDefinition = "uuid", length=50)
     private UUID sessionId;
 
     // This is our Billing/auth/first-class account. Represents a canonical MM user.

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Maches with user 1:1 regarding how they want their model to be handled as
@@ -16,8 +17,9 @@ import java.util.List;
 public class OptionsEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid")
+    private UUID id;
 
     // ===== LLM CONFIG =====
     @Setter
@@ -61,7 +63,7 @@ public class OptionsEntity {
             joinColumns = @JoinColumn(name = "option_id")
     )
     @Column(name = "topic_id")
-    private List<Long> topicIds;
+    private List<UUID> topicIds;
 
     @Setter
     @ElementCollection
@@ -70,7 +72,7 @@ public class OptionsEntity {
             joinColumns = @JoinColumn(name = "option_id")
     )
     @Column(name = "session_id")
-    private List<Long> sessionIds;
+    private List<UUID> sessionIds;
 
     // ===== PRE-INJECT PAYLOAD =====
     @Setter

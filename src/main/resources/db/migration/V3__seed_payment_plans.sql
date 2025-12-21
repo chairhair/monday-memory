@@ -1,3 +1,11 @@
+DO $$
+BEGIN
+  IF (SELECT COUNT(*) FROM price_plan WHERE code IN ('FREE')) <> 1 THEN
+    RAISE EXCEPTION 'Seed price_plan failed: would be inserting into price_plan again';
+  END IF;
+END $$;
+
+
 INSERT INTO price_plan (
     id,
     code,
