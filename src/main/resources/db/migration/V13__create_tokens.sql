@@ -21,5 +21,4 @@ ALTER TABLE tokens_entity
     REFERENCES user_credentials(id)
     ON DELETE CASCADE;
 
-CREATE INDEX ix_tokens_user_id ON tokens_entity(user_id);
 CREATE INDEX ix_tokens_user_credentials_id ON tokens_entity(user_credentials_id);
