@@ -80,3 +80,7 @@ CREATE INDEX ix_user_plan_subscription_id
 
 ALTER TABLE user_plan
     ADD CONSTRAINT uk_user_plan_stripe_subscription_id UNIQUE (stripe_subscription_id);
+
+-- One row per Stripe event (idempotency guard)
+CREATE INDEX ix_payment_event_user_id ON payment_event(user_id);
+CREATE INDEX ix_payment_event_user_received_at ON payment_event(user_id, received_at);

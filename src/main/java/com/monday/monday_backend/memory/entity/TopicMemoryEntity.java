@@ -32,7 +32,7 @@ public class TopicMemoryEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", columnDefinition = "uuid")
-    private String id;
+    private UUID id;
 
     /**
      * Owner of this topic.
