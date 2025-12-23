@@ -54,6 +54,8 @@ public class MemoryService {
     public ResponseMemoryChunkDTO query(PrincipalContext principal,
                                         RequestMemoryQueryDTO dto) {
 
+        quotaService.reset(principal.getUserPlan());
+
         RequestMemoryChunkDTO memDto = dto.memoryChunkDTO();
         MemoryAggregationOptions options = dto.options();
 

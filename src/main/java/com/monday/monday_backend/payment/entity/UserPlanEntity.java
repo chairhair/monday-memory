@@ -69,6 +69,10 @@ public class UserPlanEntity {
     @Column(name = "tokens_used")
     private Long tokensUsed;
 
+    @Setter
+    @Column(name = "tokens_used_month")
+    private Long tokensUsedMonth;
+
     @Version
     private Long version;
 

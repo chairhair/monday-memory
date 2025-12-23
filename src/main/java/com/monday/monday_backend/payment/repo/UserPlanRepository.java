@@ -37,4 +37,20 @@ public interface UserPlanRepository extends JpaRepository<UserPlanEntity, UUID> 
                           @Param("subscriptionId") String subscriptionId,
                           @Param("currentPeriodEnd") Instant currentPeriodEnd,
                           @Param("updatedAt") Instant updatedAt);
+
+    // This refreshes our tokens if it's past the current month
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(value = """
+    UPDATE user_plan
+    SET
+      tokens_used = 0,
+      tokens_used_month = :yyyymm
+    WHERE id = :planId
+      AND (tokens_used_month IS NULL OR tokens_used_month <> :yyyymm)
+    """, nativeQuery = true)
+    int ensureCurrentMonthBucket(
+            @Param("planId") UUID planId,
+            @Param("yyyymm") int yyyymm
+    );
 }

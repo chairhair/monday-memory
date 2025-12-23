@@ -5,18 +5,23 @@ import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
+import com.monday.monday_backend.payment.utils.MonthKey;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaDecision;
 import com.monday.shared.memory.quota.QuotaSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Clock;
 
 @Primary
 @Service
 @RequiredArgsConstructor
 public class SimpleQuotaService implements QuotaService {
 
+    private final Clock clock;
     private final UserPlanRepository userPlanRepository;
 
     @Override
@@ -42,6 +47,15 @@ public class SimpleQuotaService implements QuotaService {
                 ? userPlan.getTokensUsed()
                 : 0L;
 
+        int currentMonth = MonthKey.currentUtcYYYYMM(clock);
+
+        long tokensUsedThisMonth =
+                (userPlan != null
+                        && userPlan.getTokensUsedMonth() != null
+                        && userPlan.getTokensUsedMonth() == currentMonth)
+                        ? (userPlan.getTokensUsed() != null ? userPlan.getTokensUsed() : 0L)
+                        : 0L;
+
         Double warningRatio = (pricePlan != null && pricePlan.getWarningThresholdRatio() != null)
                 ? pricePlan.getWarningThresholdRatio()
                 : 0.8; // safe global default if not set
@@ -50,6 +64,7 @@ public class SimpleQuotaService implements QuotaService {
                 .topicsUsed(topicsUsed)
                 .topicLimit(topicLimit)
                 .tokensUsed(tokensUsed)
+                .tokensUsedMonth(tokensUsedThisMonth)
                 .tokenLimit(tokenLimit)
                 .warningThresholdRatio(warningRatio)
                 .build();
@@ -71,13 +86,22 @@ public class SimpleQuotaService implements QuotaService {
                 >= snapshot.getTopicLimit() * snapshot.getWarningThresholdRatio();
 
         boolean nearTokens = snapshot.getTokensUsed()
-                >= snapshot.getTopicLimit() * snapshot.getWarningThresholdRatio();
+                >= snapshot.getTokenLimit() * snapshot.getWarningThresholdRatio();
 
         if (nearTopics || nearTokens) {
             return QuotaDecision.ALLOW_WITH_WARNING;
         }
 
         return QuotaDecision.ALLOW;
+    }
+
+    @Override
+    public void reset(UserPlanEntity userPlan) {
+        if (userPlan == null) {
+            throw new IllegalStateException("Cannot continue; userPlan does not exist");
+        }
+
+        userPlanRepository.ensureCurrentMonthBucket(userPlan.getId(), MonthKey.currentUtcYYYYMM(clock));
     }
 
     @Override

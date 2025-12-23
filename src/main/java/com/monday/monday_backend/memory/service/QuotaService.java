@@ -18,5 +18,7 @@ public interface QuotaService {
 
     QuotaDecision decide(QuotaSnapshot snapshot);
 
+    void reset(UserPlanEntity userPlan);
+
     String buildWarningMessage(PrincipalContext principal);
 }
