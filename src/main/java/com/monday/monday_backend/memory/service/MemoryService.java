@@ -57,7 +57,7 @@ public class MemoryService {
         quotaService.reset(principal.getUserPlan());
 
         RequestMemoryChunkDTO memDto = dto.memoryChunkDTO();
-        MemoryAggregationOptions options = dto.options();
+        MemoryAggregationOptions options = dto.options().toBuilder();
 
         // 1) Ensure we have a session for this principal
         SessionMemoryEntity session = resolveOrCreateSession(principal, memDto);
