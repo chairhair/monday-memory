@@ -1,5 +1,6 @@
 package com.monday.monday_backend.memory.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.llm.LlmClient;
 import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
@@ -107,7 +108,7 @@ public class MemoryService {
         SessionMemoryEntity sessionMemory = sessionService.updateChunkCount(assistantChunk.getSession(), 2);
 
         // TODO: Ignoring tags for now.
-        return new ResponseMemoryChunkDTO(assistantChunk.getContent().toString(), sessionMemory.getPrincipalType(), sessionMemory.getPrincipalId(), Instant.now(), null);
+        return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(assistantChunk.getContent()), sessionMemory.getPrincipalType(), sessionMemory.getPrincipalId(), Instant.now(), null);
     }
 
     /**
@@ -116,6 +117,9 @@ public class MemoryService {
     public ResponseMemoryChunkDTO recordOnly(PrincipalContext principal,
                                              RequestMemoryChunkDTO dto) {
         SessionMemoryEntity session = resolveOrCreateSession(principal, dto);
+        if (session.getSessionState() != SessionState.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot append memory to closed session");
+        }
 
         MemoryChunkEntity chunk = createChunkFromDto(principal, session, dto);
         memoryChunkRepository.save(chunk);
@@ -131,9 +135,6 @@ public class MemoryService {
             SessionMemoryEntity existing =
                     sessionService.getSessionPresent(dto.sessionId(), principal, false);
             if (existing != null) {
-                if (existing.getSessionState() != SessionState.ACTIVE) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot append memory to closed session");
-                }
                 if (!Objects.equals(existing.getPrincipalId(), principal.getPrincipalId().toString())
                     || existing.getPrincipalType() != principal.getPrincipalType()) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User and Principal did not match up");
@@ -155,6 +156,8 @@ public class MemoryService {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot process quota because it's reached it's limits on tokens/topics");
                 }
                 return existing;
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session Id has either been expired or lost");
             }
         }
 

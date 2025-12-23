@@ -53,7 +53,7 @@ public class QueryController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "There's no query!");
         }
 
-        PrincipalContext principal = principalResolver.fromAuthUser(authUser, requestDTO.memoryChunkDTO().sourceToGuestSource());
+        PrincipalContext principal = principalResolver.resolve(authUser, requestDTO.memoryChunkDTO().toGuestHandle());
 
         return memory.query(principal, requestDTO);
     }
