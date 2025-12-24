@@ -216,8 +216,8 @@ public class MemoryChunkUtils {
             return toJson(rawContent);
         }
 
-        Object roleObj = map.get("role");
-        Object textObj = map.get("text");
+        Object roleObj = map.get("principalType");
+        Object textObj = map.get("body");
 
         String role = roleObj != null ? roleObj.toString() : "unknown";
         String text;

@@ -106,7 +106,7 @@ public class SessionMemoryController {
             @AuthenticationPrincipal AuthUser authUser,
             @RequestBody RecallRequestDTO requestDTO
             ) {
-        PrincipalContext principal = principalResolver.resolve(authUser, new GuestHandle(requestDTO.sessionId().toString(), requestDTO.sourceToGuestSource()));
+        PrincipalContext principal = principalResolver.resolve(authUser, new GuestHandle(requestDTO.principalKey(), requestDTO.sourceToGuestSource()));
         principal.validateShape();
 
         return sessionService.recallSessionInfo(principal, requestDTO);
