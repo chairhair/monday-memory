@@ -52,8 +52,8 @@ public class JwtService {
         // If no username or password is provided, we can affirm that this is a guest token and should be returned as such
         if (verificationRequestDTO.isGuest()) {
             TokensEntity tokensEntity = new TokensEntity();
-            tokensEntity.setToken(jwtUtil.generateToken(verificationRequestDTO.serviceName(), "GUEST"));
-            tokensEntity.setServiceName(verificationRequestDTO.serviceName());
+            tokensEntity.setToken(jwtUtil.generateToken(verificationRequestDTO.principalId(), "GUEST"));
+            tokensEntity.setSourceName(verificationRequestDTO.sourceName());
             tokensEntity.setAccessLevel(accessLevel);
             tokensEntity.setTimeCreated(Instant.now());
             tokensEntity.setExpired(false);
@@ -65,7 +65,7 @@ public class JwtService {
 
         Optional<UserEntity> findUser = userRepository.findByEmail(verificationRequestDTO.email());
         if (findUser.isEmpty()) {
-            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND.value(), "User not found or password incorrect");
+            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "User not found or password incorrect");
         }
         UserEntity foundUser = findUser.get();
 
@@ -80,14 +80,14 @@ public class JwtService {
                 .collect(Collectors.toList());
         boolean findRole = foundUser.getRoles().stream().anyMatch(role -> role.getAccessLevel().equals(requestedRole));
         if (!findRole && tokensAvailable.isEmpty()) {
-            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND.value(), "Could not find user role");
+            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "Could not find user role");
         }
         if (findRole && tokensAvailable.isEmpty()) {
             // Since we don't have a token generated, we need to generate one.
-            String createToken = jwtUtil.generateToken(verificationRequestDTO.serviceName(), verificationRequestDTO.requestedRole());
+            String createToken = jwtUtil.generateToken(verificationRequestDTO.sourceName(), verificationRequestDTO.requestedRole());
             TokensEntity tokensEntity = new TokensEntity();
             tokensEntity.setToken(createToken);
-            tokensEntity.setServiceName(verificationRequestDTO.serviceName());
+            tokensEntity.setSourceName(verificationRequestDTO.sourceName());
             tokensEntity.setUserCredentials(userCreds);
             tokensEntity.setAccessLevel(accessLevel);
             tokensEntity.setTimeCreated(Instant.now());
@@ -109,7 +109,7 @@ public class JwtService {
 
         // Fake a “claims” map from your DB row so the filter can stay generic
         Map<String, Object> claims = new HashMap<>();
-        claims.put("sub", row.getServiceName());       // or user id if you store it
+        claims.put("sub", row.getSourceName());       // or user id if you store it
         claims.put("roles", List.of(row.getAccessLevel())); // e.g., USER/PRO
         return claims;
     }

@@ -7,7 +7,7 @@ CREATE TABLE tokens_entity (
     user_credentials_id UUID NULL,
 
     token VARCHAR(255) NOT NULL UNIQUE,
-    service_name VARCHAR(255) NOT NULL,
+    source_name VARCHAR(255) NOT NULL,
 
     access_level VARCHAR(64) NULL,
     time_created TIMESTAMP NOT NULL,

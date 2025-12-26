@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,7 +30,6 @@ public class UserCredentialsEntity {
     @Column(name = "password")
     private String password;
 
-    // For guest tokens
     @Setter
     @OneToMany(
             mappedBy = "userCredentials",
@@ -38,4 +38,11 @@ public class UserCredentialsEntity {
             orphanRemoval = true
     )
     private List<TokensEntity> tokens;
+
+    public void addToken(TokensEntity token) {
+        if (tokens == null) {
+            tokens = new ArrayList<>();
+        }
+        tokens.add(token);
+    }
 }

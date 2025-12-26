@@ -33,19 +33,17 @@ final public class DevImpersonationFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
 
         var user = req.getHeader("X-Dev-User");
-        if (!enabled) {
-            if (user != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                var node = new ObjectMapper().readTree(user);
-                String id = node.path("id").asText(null);
-                String email = node.path("email").asText(null);
-                var roles = Optional.ofNullable(req.getHeader("X-Dev-Roles")).orElse("");
-                var scopes = Optional.ofNullable(req.getHeader("X-Dev-Scopes")).orElse("");
-                var authorities = AuthorizationMapper.toAuthorities(roles, scopes);
+        if (user != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            var node = new ObjectMapper().readTree(user);
+            String id = node.path("id").asText(null);
+            String email = node.path("email").asText(null);
+            var roles = Optional.ofNullable(req.getHeader("X-Dev-Roles")).orElse("");
+            var scopes = Optional.ofNullable(req.getHeader("X-Dev-Scopes")).orElse("");
+            var authorities = AuthorizationMapper.toAuthorities(roles, scopes);
 
-                var principal = new AuthUser(id, email, roles.isEmpty() ? List.of(new SimpleGrantedAuthority(("ROLE_USER"))) : authorities);
-                var auth = new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
+            var principal = new AuthUser(id, email, roles.isEmpty() ? List.of(new SimpleGrantedAuthority(("ROLE_USER"))) : authorities);
+            var auth = new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());
+            SecurityContextHolder.getContext().setAuthentication(auth);
         }
         chain.doFilter(req, res);
     }

@@ -1,5 +1,7 @@
 package com.monday.monday_backend.auth.filters;
 
+import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
+import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
 import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.auth.tokens.TokensRepository;
@@ -40,10 +42,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;    // Handles parsing + validating the token
     private final TokensRepository tokensRepository;
+    private final UserCredentialsRepository userCredentialsRepository;
 
+    /**
+     * This is just a standard JWT + DB backed token state
+     * @param request
+     * @param response
+     * @param filterChain
+     * @throws ServletException
+     * @throws IOException
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
+        // This short-circuits if we're already authenticated.
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
             filterChain.doFilter(request, response);
             return;
@@ -70,16 +82,27 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             Optional<TokensEntity> tokensEntity = tokensRepository.findByToken(jwt);
             if (tokensEntity.isEmpty() || tokensEntity.get().isExpired() || tokensEntity.get().isRevoked()) {
                 // Token is invalid — skip authentication
+                logger.warn("JWT couldn't be found in TokensEntity; treating it as invalid");
+                tokensEntity.ifPresent(tokensRepository::delete);
+                SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
             }
 
             Map<String, Object> claims = jwtService.verify(jwt);
 
-            String userId = asString(claims.get("sub"));
+            String userId = asString(claims.get("principalId"));
             if (userId == null) {
                 // Fallback to your DB column if you're using service tokens
-                userId = tokensEntity.get().getServiceName();
+                UserCredentialsEntity uCE = tokensEntity.get().getUserCredentials();
+                if (uCE == null || uCE.getUser() == null) {
+                    logger.warn("Could not find user credentials under token; treating it as invalid");
+                    tokensRepository.delete(tokensEntity.get());
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                userId = uCE.getUser().getUserId().toString();
             }
 
             String email = asString(claims.get("email"));
@@ -103,7 +126,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             Collection<GrantedAuthority> authorities = toAuthorities(rolesClaim, scopesClaim, dbRoles);
 
             // Also fold in DB access level if you want it to act like a role
-
             AuthUser principal = new AuthUser(userId, email, authorities);
 
             // Create the Authentication object

@@ -46,11 +46,10 @@ public class UserPreferencesEntity {
 
     @Setter
     @Column(name = "max_chunks_per_session")
-    private Integer maxChunksPerSession;
+    private Long maxChunksPerSession;
 
     @Setter
     @Column(name = "max_tokens_per_session")
-    private Integer maxTokensPerSession;
+    private Long maxTokensPerSession;
 
-    // TODO: Incorporate recall options later.
 }

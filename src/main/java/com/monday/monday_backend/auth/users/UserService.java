@@ -2,6 +2,7 @@ package com.monday.monday_backend.auth.users;
 
 import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
 import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
+import com.monday.monday_backend.auth.filters.JwtService;
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
@@ -11,8 +12,12 @@ import com.monday.monday_backend.communication.repo.UserExternalAccountRepositor
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
+import com.monday.monday_backend.memory.service.LimitsProperties;
+import com.monday.monday_backend.payment.PlanDefaultsService;
+import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.auth.dto.*;
 import com.monday.shared.auth.utils.AccessLevel;
+import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.recording.RecordingScope;
@@ -35,11 +40,15 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
+    private final JwtService jwtService;
+    private final LimitsProperties limits;
+
     private final UserRepository userRepository;
     private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
-
     private final SessionMemoryRepository sessionMemoryRepository;
+
+    private final PlanDefaultsService planDefaultsService;
 
     private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
@@ -60,15 +69,7 @@ public class UserService {
         }
 
         UserPreferencesDTO userPreferencesDTO = dto.options();
-        // If we hit null on our dtos, we want to make sure that we still return something
-        if (userPreferencesDTO == null) {
-            userPreferencesDTO = new UserPreferencesDTO(
-                    SessionScope.CHANNEL,
-                    RecordingScope.PRIVATE,
-                    10,
-                    1000
-            );
-        }
+
 
         List<UUID> sessionIds;
 
@@ -93,7 +94,12 @@ public class UserService {
             Set<AccessLevel> rolesPresent = existing.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet());
             Set<String> tokensList = userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
 
-            return UserResponseDTO.successfulDTO(userEntity.getUserId(), sessionIds, userEntity.getEmail(), rolesPresent, tokensList, userPreferencesDTO);
+            // If we hit null on our dtos, we want to make sure that we still return something
+            if (userPreferencesDTO == null) {
+                userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, userEntity);
+            }
+
+            return UserResponseDTO.successfulDTO(userEntity.getUserId(), sessionIds, userEntity.getEmail(), rolesPresent, tokensList, generateUseStats(existing), userPreferencesDTO);
         }
 
         RolesEntity rolesEntity = rolesRepository.findByAccessLevel(AccessLevel.USER).orElseThrow(() -> new RuntimeException("Default role USER not found"));
@@ -106,11 +112,47 @@ public class UserService {
         userCredentials.setUser(newUser);
         userCredentialsRepository.save(userCredentials);
 
-        sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, dto.principalKey())
+        // Prior to finishing, we must include a new token as part of our
+        VerificationResponseDTO verificationDTO = jwtService.assignToken(new VerificationRequestDTO(
+                newUser.getUserId().toString(),
+                dto.source().toString(),
+                AccessLevel.USER.name(),
+                dto.emailAddress(),
+                dto.password()
+        ));
+
+        HashSet<String> ourTokens = new HashSet<>();
+        if ((verificationDTO.authentication().get("tokens") instanceof List)) {
+            for (Object token : (List<?>) verificationDTO.authentication().get("tokens")) {
+                if (token instanceof String) {
+                    ourTokens.add((String)token);
+                } else {
+                    throw new IllegalArgumentException("Token was not considered a string...");
+                }
+            }
+        }
+
+        // Update all session memory entities that were previously included under our guest.
+        List<SessionMemoryEntity> sessionMemoryEntities = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, dto.principalKey());
+        for (SessionMemoryEntity sessionMemory : sessionMemoryEntities) {
+            sessionMemory.setPrincipalType(PrincipalType.USER);
+            sessionMemory.setUser(newUser);
+            sessionMemoryRepository.save(sessionMemory);
+        }
+        sessionIds = sessionMemoryEntities
                 .stream()
                 .map(SessionMemoryEntity::getSessionId).toList();
 
-        return UserResponseDTO.successfulDTO(newUser.getUserId(), sessionIds, newUser.getEmail(), Set.of(AccessLevel.USER), new HashSet<>(), userPreferencesDTO);
+        if (verificationDTO.statusCode() != HttpStatus.OK) {
+            return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
+        }
+
+        // If we hit null on our dtos, we want to make sure that we still return something
+        if (userPreferencesDTO == null) {
+            userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, newUser);
+        }
+
+        return UserResponseDTO.successfulDTO(newUser.getUserId(), sessionIds, newUser.getEmail(), Set.of(AccessLevel.USER), ourTokens, generateUseStats(newUser), userPreferencesDTO);
     }
 
     @Transactional
@@ -129,7 +171,7 @@ public class UserService {
                     .stream()
                     .map(SessionMemoryEntity::getSessionId).toList();
             UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
-            UserPreferencesEntity prefs = user.getUserPreferences();
+
             Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
             return UserResponseDTO.successfulDTO(
                 user.getUserId(),
@@ -137,12 +179,8 @@ public class UserService {
                 user.getEmail(),
                 user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()),
                 tokens,
-                new UserPreferencesDTO(
-                        prefs.getScope(),
-                        prefs.getCommScope(),
-                        prefs.getMaxChunksPerSession(),
-                        prefs.getMaxTokensPerSession()
-                ));
+                generateUseStats(user),
+                generatePreferenceStats(user));
         }).collect(Collectors.toList());
     }
 
@@ -153,6 +191,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "External Login Request doesn't exist");
         }
         UserEntity userEntity = findExternalAccount.get().getUser();
+
         UserPreferencesDTO options = new UserPreferencesDTO(
                 userEntity.getUserPreferences().getScope(),
                 userEntity.getUserPreferences().getCommScope(),
@@ -160,7 +199,7 @@ public class UserService {
                 userEntity.getUserPreferences().getMaxTokensPerSession()
         );
         List<UUID> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, userEntity.getUserId().toString()).stream().map(SessionMemoryEntity::getSessionId).toList();
-        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds, options);
+        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds, generateUseStats(userEntity), options);
     }
 
     @Transactional
@@ -184,14 +223,12 @@ public class UserService {
                 externalAccount.setExternalId(externalLoginRequestDTO.externalId());
                 externalAccount.setCreatedAt(now);
                 userExternalAccountRepository.save(externalAccount);
-                return UserResponseDTO.successfulDTO(null, sessionIds, null, Set.of(AccessLevel.GUEST), null, new UserPreferencesDTO(
-                        SessionScope.CHANNEL,
-                        RecordingScope.PRIVATE,
-                        10,
-                        1000
-                ));
+
+                return UserResponseDTO.successfulDTO(null, sessionIds, null, Set.of(AccessLevel.GUEST), null,
+                        generateUseStats(user),
+                        generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, user));
             } catch (DataIntegrityViolationException dVE) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not create the account: "+dVE);
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not logint into the account: "+dVE);
             }
         }
         user = findExternalAccount.get().getUser();
@@ -202,29 +239,29 @@ public class UserService {
             // If we can't find a user, we must log it and save it
             setOfRoles = Set.of(rolesRepository.findByAccessLevel(AccessLevel.GUEST).orElseThrow(() -> new RuntimeException("Default role USER not found")));
             try {
-                saveUser(null, setOfRoles);
+                user = saveUser(null, setOfRoles);
             } catch (DataIntegrityViolationException dVE) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not create the account: "+dVE);
             }
-            return UserResponseDTO.successfulDTO(null, sessionIds, null, Set.of(AccessLevel.GUEST), null, new UserPreferencesDTO(
-                    SessionScope.CHANNEL,
-                    RecordingScope.PRIVATE,
-                    10,
-                    1000
-            ));
+            return UserResponseDTO.successfulDTO(null, sessionIds, null, Set.of(AccessLevel.GUEST), null,
+                    generateUseStats(user),
+                    generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, user)
+                    );
         }
+
         sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, user.getUserId().toString())
                 .stream()
                 .map(SessionMemoryEntity::getSessionId).toList();
         UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
         Set<String> tokens = (userCredentials == null) ? null : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
+
         UserPreferencesDTO options = new UserPreferencesDTO(
                 user.getUserPreferences().getScope(),
                 user.getUserPreferences().getCommScope(),
                 user.getUserPreferences().getMaxChunksPerSession(),
                 user.getUserPreferences().getMaxTokensPerSession()
         );
-        return UserResponseDTO.successfulDTO(user.getUserId(), sessionIds, user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), tokens, options);
+        return UserResponseDTO.successfulDTO(user.getUserId(), sessionIds, user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), tokens, generateUseStats(user), options);
     }
 
 
@@ -237,5 +274,43 @@ public class UserService {
         user.setEmail(email);
         userRepository.save(user);
         return user;
+    }
+
+    private UserUseStatsDTO generateUseStats(UserEntity user) {
+        UserPlanEntity userPlan = user.getUserPlan();
+
+        Long tokensUsed = userPlan.getTokensUsed();
+        Integer topicsUsed = userPlan.getTopicsUsed();
+        Long tokensUsedMonth = userPlan.getTokensUsedMonth();
+
+        return new UserUseStatsDTO(
+                tokensUsed,
+                topicsUsed,
+                tokensUsedMonth
+        );
+    }
+
+    private UserPreferencesDTO generatePreferenceStats(UserEntity user) {
+        return generatePreferenceStats(null, null, user);
+    }
+
+    private UserPreferencesDTO generatePreferenceStats(SessionScope sessionScope, RecordingScope recordingScope, UserEntity user) {
+        UserPreferencesEntity prefs = user.getUserPreferences();
+        UserPlanEntity userPlan = user.getUserPlan();
+
+        // This is where you map your concrete price plan / flags to "Pro" vs "Free"
+        if (userPlan != null && planDefaultsService.isProPlan(userPlan)) {
+            return limits.toPrefsDTO(
+                sessionScope == null ? prefs.getScope() : sessionScope,
+                recordingScope == null ? prefs.getCommScope() : recordingScope,
+                EffectivePlan.USER_PRO
+            );
+        }
+
+        return limits.toPrefsDTO(
+            sessionScope == null ? prefs.getScope() : sessionScope,
+            recordingScope == null ? prefs.getCommScope() : recordingScope,
+            EffectivePlan.USER_FREE
+        );
     }
 }

@@ -1,7 +1,6 @@
 package com.monday.monday_backend.auth.users;
 
 import com.monday.monday_backend.auth.roles.RolesEntity;
-import com.monday.monday_backend.auth.tokens.TokensEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,7 +9,6 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 

@@ -31,8 +31,8 @@ public class TokensEntity {
     private String token;
 
     @Setter
-    @Column(name = "service_name")
-    private String serviceName;
+    @Column(name = "source_name")
+    private String sourceName;
 
     @Setter
     @Enumerated(EnumType.STRING)

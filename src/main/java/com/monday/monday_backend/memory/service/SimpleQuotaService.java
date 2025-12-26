@@ -12,7 +12,6 @@ import com.monday.shared.memory.quota.QuotaSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 
@@ -23,6 +22,8 @@ public class SimpleQuotaService implements QuotaService {
 
     private final Clock clock;
     private final UserPlanRepository userPlanRepository;
+
+    private final LimitsProperties limits;
 
     @Override
     public QuotaSnapshot snapshotFor(UserEntity user,

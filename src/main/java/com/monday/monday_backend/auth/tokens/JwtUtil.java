@@ -49,11 +49,11 @@ public class JwtUtil {
         this.EXPIRATION_MS = expirationMs;
     }
 
-    public String generateToken(String serviceName, String role) {
+    public String generateToken(String principalId, String role) {
         long now = System.currentTimeMillis();
 
         return Jwts.builder()
-                .setSubject(serviceName)
+                .setSubject(principalId)
                 .claim("role", role)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + EXPIRATION_MS))
