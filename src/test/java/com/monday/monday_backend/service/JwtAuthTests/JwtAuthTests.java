@@ -39,7 +39,7 @@ class JwtAuthTests extends AbstractJwtResourceServerTest {
 
         SessionMemoryFilterRequestDTO dto = new SessionMemoryFilterRequestDTO(null, null, null, null);
 
-        mvc.perform(post("/v1/memory/session")
+        mvc.perform(post("/api/memory/session")
                         .header("Authorization", "Bearer "+token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)

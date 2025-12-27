@@ -36,7 +36,7 @@ import java.util.UUID;
  * - Used when we need to immediate render the convo state without searching
  */
 @RestController
-@RequestMapping("/v1/memory/session")
+@RequestMapping("/api/memory/session")
 @RequiredArgsConstructor
 public class SessionMemoryController {
 

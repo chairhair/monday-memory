@@ -78,7 +78,7 @@ public class DevBypassPaymentTests extends JwksTestSupport {
                 .thenReturn(new StartCheckoutResponseDTO("https://checkout", "cs_123"));
 
         var req = new StartCheckoutRequestDTO("PRO_MONTHLY", "https://app/success", "https://app/cancel");
-        mvc.perform(post("/v1/payments/checkout")
+        mvc.perform(post("/api/payments/checkout")
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(req)))
                 .andDo(print())
@@ -95,7 +95,7 @@ public class DevBypassPaymentTests extends JwksTestSupport {
                 .thenReturn(new StartCheckoutResponseDTO("https://checkout", "cs_123"));
 
         var req = new StartCheckoutRequestDTO("PRO_MONTHLY", "https://app/success", "https://app/cancel");
-        mvc.perform(post("/v1/payments/checkout")
+        mvc.perform(post("/api/payments/checkout")
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(req)))
                 .andDo(print())
@@ -107,13 +107,13 @@ public class DevBypassPaymentTests extends JwksTestSupport {
     @WithAuth
     @Test
     void cannotCreateUserSubscriptionCheckoutWithoutRequestBody() throws Exception {
-        mvc.perform(post("/v1/payments/checkout"))
+        mvc.perform(post("/api/payments/checkout"))
                 .andExpect(status().is(500));
     }
 
     @Test
     void cannotCreateGuestSubscriptionCheckoutWithoutRequestBody() throws Exception {
-        mvc.perform(post("/v1/payments/checkout"))
+        mvc.perform(post("/api/payments/checkout"))
                 .andExpect(status().is(500));
     }
 

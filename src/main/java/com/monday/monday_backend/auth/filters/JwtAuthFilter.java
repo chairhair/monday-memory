@@ -72,7 +72,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7); // Remove "Bearer "
         logger.info("JWT removed Bearer " + jwt);
-        if (jwt.isEmpty()) {
+        if (jwt.isEmpty() || jwt.equalsIgnoreCase("null")) {
             filterChain.doFilter(request, response);
             return;
         }

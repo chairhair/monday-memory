@@ -126,7 +126,7 @@ public class MemoryChunkTests {
         ArgumentCaptor<RequestMemoryChunkDTO> dtoCaptor =
                 ArgumentCaptor.forClass(RequestMemoryChunkDTO.class);
 
-        mvc.perform(post("/v1/memory/session/memory-chunk")
+        mvc.perform(post("/api/memory/session/memory-chunk")
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(requestBody)))
                 .andDo(print())
@@ -212,7 +212,7 @@ public class MemoryChunkTests {
         ArgumentCaptor<RequestMemoryChunkDTO> dtoCaptor =
                 ArgumentCaptor.forClass(RequestMemoryChunkDTO.class);
 
-        mvc.perform(post("/v1/memory/session/memory-chunk")
+        mvc.perform(post("/api/memory/session/memory-chunk")
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(requestBody)))
                 .andDo(print())

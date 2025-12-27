@@ -45,8 +45,8 @@ public class SecurityConfigProd {
                                                    @Value("${app.security.mode}") String mode,
                                                    JwtDecoder jwtDecoder) throws Exception {
         var converter = new JwtGrantedAuthoritiesConverter();
-        converter.setAuthorityPrefix("SCOPE_");  // scopes -> SCOPE_mem.write
-        converter.setAuthoritiesClaimName("scope");
+        converter.setAuthorityPrefix("ROLE_");  // scopes -> SCOPE_mem.write
+        converter.setAuthoritiesClaimName("role");
 
         Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthConverter =
                 jwt -> new JwtAuthenticationToken(jwt,
@@ -59,18 +59,30 @@ public class SecurityConfigProd {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/**").permitAll()
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/error",
+                                "/webhook/stripe",
+                                "/auth/**"
+                        ).permitAll()
+
+                        // Guest OR user can do these:
+                        .requestMatchers(
+                                "/api/memory/**"
+                        ).permitAll()
+
+                        // Only real accounts can do billing-ish stuff:
+                        .requestMatchers(
+                                "/api/billing/**",
+                                "/api/payment/**",
+                                "/api/account/**",
+                                "/api/options/**"
+                        ).authenticated() // or check type in your controller
+
                         .anyRequest().denyAll()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        switch(mode) {
-            case "jwt" -> http.oauth2ResourceServer(o -> o.jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter)));
-            //case "opaque" -> http.oauth2ResourceServer(o -> o.opaqueToken(ot -> ot.introspector(token -> token)));    // TODO: Have a method that allows us to verify our tokens later.
-            case "dev" -> http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
-                    .addFilterBefore(new DevImpersonationFilter(), SecurityContextHolderFilter.class);
-            default -> throw new IllegalStateException("Unknown app.security.mode: " + mode);
-        }
         return http.build();
 
     }

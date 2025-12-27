@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
  *
  */
 @RestController
-@RequestMapping("/v1/memory/topic")
+@RequestMapping("/api/memory/topic")
 @RequiredArgsConstructor
 public class TopicMemoryController {
 
