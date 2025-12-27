@@ -72,9 +72,12 @@ public class SecurityConfigProd {
                                 "/user/**"
                         ).permitAll()
 
+                        .requestMatchers(
+                                "/api/billing/**"
+                        ).permitAll()
+
                         // Only real accounts can do billing-ish stuff:
                         .requestMatchers(
-                                "/api/billing/**",
                                 "/api/payments/**",
                                 "/api/account/**",
                                 "/api/options/**"

@@ -138,7 +138,7 @@ public class BillingService {
 
     private UUID resolveUserIdFromCustomer(String customerId) {
         return userPlanRepository.findByStripeCustomerId(customerId)
-                .map(UserPlanEntity::getId)
+                .map(userPlan -> userPlan.getUser().getUserId())
                 .orElse(null);
     }
 }
