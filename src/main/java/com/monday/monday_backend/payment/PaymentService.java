@@ -1,5 +1,6 @@
 package com.monday.monday_backend.payment;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
 import com.monday.monday_backend.payment.config.StripeConfiguration;
 import com.monday.monday_backend.payment.core.PaymentProvider;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
@@ -26,23 +27,24 @@ public class PaymentService implements PaymentProvider {
     private final PricePlanRepository pricePlanRepository;
 
     @Override
-    public StartCheckoutResponseDTO createSubscriptionCheckout(UUID userId, String pricePlan, String successUrl, String cancelUrl) throws RuntimeException, StripeException {
-
-        UserPlanEntity userPlan = null;
-        if (userId != null) {
-            userPlan = userPlanRepository.findByUser_UserId(userId).orElseThrow(() -> new IllegalArgumentException("User not found!"));
+    public StartCheckoutResponseDTO createSubscriptionCheckout(AuthUser authUser, String pricePlan, String successUrl, String cancelUrl) throws RuntimeException, StripeException {
+        if (authUser.id() == null) {
+            throw new IllegalStateException("Cannot use this if we don't have a user Id that's present");
         }
+        UUID authUserId = UUID.fromString(authUser.id());
+        UserPlanEntity userPlan = userPlanRepository.findByUser_UserId(authUserId).orElseThrow(() -> new IllegalArgumentException("User not found!"));
 
         PricePlanEntity pricePlanEntity = pricePlanRepository.findByCode(pricePlan).orElseThrow(() -> new IllegalArgumentException("Cannot find price plan: "+pricePlan));
 
         String knownUserId = userPlan == null ? null : userPlan.getId().toString();
 
         SessionCreateParams params = SessionCreateParams.builder()
+                .setCustomerEmail(authUser.email())
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
                 .setSuccessUrl(successUrl + "?session_id={CHECKOUT_SESSION_ID}")
                 .setCancelUrl(cancelUrl)
                 .setClientReferenceId(knownUserId)                   // may be null; Stripe accepts it
-                .putMetadata("userId", String.valueOf(userId))  // metadata always String
+                .putMetadata("userId", authUser.id())  // metadata always String
                 .addLineItem(SessionCreateParams.LineItem.builder()
                         .setPrice(pricePlanEntity.getStripePriceId())
                         .setQuantity(1L)

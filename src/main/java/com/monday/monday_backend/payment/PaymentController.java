@@ -33,7 +33,7 @@ public class PaymentController {
             @RequestBody @Valid StartCheckoutRequestDTO req
             ) {
         try {
-            return paymentService.createSubscriptionCheckout(UUID.fromString(authUser.id()), req.planCode(), req.successUrl(), req.cancelUrl());
+            return paymentService.createSubscriptionCheckout(authUser, req.planCode(), req.successUrl(), req.cancelUrl());
         } catch (StripeException se) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe could not process the payment: "+se);
         } catch (Exception ex) {
