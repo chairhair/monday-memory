@@ -12,6 +12,7 @@ import com.monday.shared.auth.dto.VerificationResponseDTO;
 import com.monday.shared.auth.utils.AccessLevel;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.*;
@@ -101,9 +102,9 @@ public class JwtService {
             tokensEntity.setTimeCreated(Instant.now());
             tokensEntity.setExpired(false);
             tokensEntity.setRevoked(false);
-            tokensRepository.save(tokensEntity);
 
             userCreds.addToken(tokensEntity);
+            tokensRepository.save(tokensEntity);
             userCredentialsRepository.save(userCreds);
 
             tokensAvailable.add(createToken);
@@ -114,15 +115,23 @@ public class JwtService {
                 "tokensAvailable", tokensAvailable));
     }
 
+    @Transactional
     public Map<String, Object> verify(String token) {
-        var row = tokensRepository.findByToken(token)
-                .filter(t -> !t.isExpired() && !t.isRevoked())
-                .orElseThrow(() -> new TokenInvalidException("Invalid/expired token"));
+        TokensEntity row = tokensRepository.findByToken(token).orElseThrow(() -> new TokenInvalidException("Invalid/expired token"));
+        if (row.isExpired() || row.isRevoked()) {
+            throw new TokenInvalidException("Invalid/expired token");
+        }
 
         // Fake a “claims” map from your DB row so the filter can stay generic
         Map<String, Object> claims = new HashMap<>();
-        claims.put("sub", row.getSourceName());       // or user id if you store it
+        claims.put("id", row.getId());
+        claims.put("source", row.getSourceName());
+        claims.put("access", row.getAccessLevel());
         claims.put("roles", List.of(row.getAccessLevel())); // e.g., USER/PRO
+        UserCredentialsEntity userCreds = row.getUserCredentials();
+        if (userCreds != null && userCreds.getUser() != null) {
+            claims.put("userId", userCreds.getUser().getUserId());
+        }
         return claims;
     }
 

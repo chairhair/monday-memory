@@ -90,7 +90,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             Map<String, Object> claims = jwtService.verify(jwt);
 
-            String userId = asString(claims.get("principalId"));
+            String userId = asString(claims.get("userId"));
             if (userId == null) {
                 // Fallback to your DB column if you're using service tokens
                 UserCredentialsEntity uCE = tokensEntity.get().getUserCredentials();

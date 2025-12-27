@@ -75,7 +75,7 @@ public class SecurityConfigProd {
                         // Only real accounts can do billing-ish stuff:
                         .requestMatchers(
                                 "/api/billing/**",
-                                "/api/payment/**",
+                                "/api/payments/**",
                                 "/api/account/**",
                                 "/api/options/**"
                         ).authenticated() // or check type in your controller

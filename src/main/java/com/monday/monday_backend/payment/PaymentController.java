@@ -21,7 +21,7 @@ import java.util.UUID;
  * - It just gives us the checkout URL.
  */
 @RestController
-@RequestMapping("/v1/payments")
+@RequestMapping("/api/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
  * Stripe tells us what happened following our Payment Controller.
  */
 @RestController
-@RequestMapping("/v1/billing")
+@RequestMapping("/api/billing")
 @RequiredArgsConstructor
 public class BillingController {
 

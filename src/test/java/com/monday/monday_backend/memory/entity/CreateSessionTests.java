@@ -195,7 +195,7 @@ public class CreateSessionTests extends JwksTestSupport {
         ArgumentCaptor<String> idempotencyKeyCaptor =
                 ArgumentCaptor.forClass(String.class);
 
-        mvc.perform(post("/v1/memory/session")
+        mvc.perform(post("/api/memory/session")
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(requestBody)))
                 .andExpect(status().isOk());
