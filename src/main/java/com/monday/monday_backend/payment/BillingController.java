@@ -24,12 +24,11 @@ public class BillingController {
     private final BillingService billingService;
 
     @PostMapping
-    public ResponseEntity<String> handleWebhook(@AuthenticationPrincipal AuthUser authUser,
-                                                @RequestHeader("Stripe-Signature") String signature,
+    public ResponseEntity<String> handleWebhook(@RequestHeader("Stripe-Signature") String signature,
                                                 @RequestBody String payload) {
         try {
             Event event = Webhook.constructEvent(payload, signature, cfg.getWebhookSecret());
-            billingService.handleStripeEvent(authUser, event);
+            billingService.handleStripeEvent(event);
             return ResponseEntity.ok("ok");
         } catch (SignatureVerificationException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid signature");
