@@ -44,7 +44,11 @@ public class PaymentService implements PaymentProvider {
                 .setSuccessUrl(successUrl + "?session_id={CHECKOUT_SESSION_ID}")
                 .setCancelUrl(cancelUrl)
                 .setClientReferenceId(knownUserId)                   // may be null; Stripe accepts it
-                .putMetadata("userId", authUser.id())  // metadata always String
+                .setSubscriptionData(
+                        SessionCreateParams.SubscriptionData.builder()
+                                .putMetadata("userId", authUser.id())
+                                .build()
+                )
                 .addLineItem(SessionCreateParams.LineItem.builder()
                         .setPrice(pricePlanEntity.getStripePriceId())
                         .setQuantity(1L)
