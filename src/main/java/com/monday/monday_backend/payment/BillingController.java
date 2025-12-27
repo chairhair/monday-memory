@@ -1,5 +1,7 @@
 package com.monday.monday_backend.payment;
 
+import com.monday.monday_backend.auth.principal.AuthUser;
+import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.payment.config.StripeConfiguration;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
@@ -7,6 +9,7 @@ import com.stripe.net.Webhook;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -21,7 +24,8 @@ public class BillingController {
     private final BillingService billingService;
 
     @PostMapping
-    public ResponseEntity<String> handleWebhook(@RequestHeader("Stripe-Signature") String signature,
+    public ResponseEntity<String> handleWebhook(@AuthenticationPrincipal AuthUser authUser,
+                                                @RequestHeader("Stripe-Signature") String signature,
                                                 @RequestBody String payload) {
         try {
             Event event = Webhook.constructEvent(payload, signature, cfg.getWebhookSecret());

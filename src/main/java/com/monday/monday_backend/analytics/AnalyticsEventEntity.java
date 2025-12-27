@@ -51,8 +51,8 @@ public class AnalyticsEventEntity {
     private Integer httpResult;
 
     @Setter
-    @Column(name = "error_code")
-    private String errorCode;
+    @Column(name = "message")
+    private String message;
 
     @Setter
     @Column(name = "latency_ms")

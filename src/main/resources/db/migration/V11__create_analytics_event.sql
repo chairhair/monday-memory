@@ -15,7 +15,7 @@ CREATE TABLE analytics_event (
     session_id TEXT,
 
     http_result INTEGER,
-    error_code TEXT,
+    message TEXT,
     latency_ms BIGINT,
 
     created_at  TIMESTAMP NOT NULL,
