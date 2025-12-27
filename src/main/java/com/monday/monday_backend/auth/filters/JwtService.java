@@ -49,6 +49,19 @@ public class JwtService {
             accessLevel = AccessLevel.GUEST;
         }
 
+        Optional<UserEntity> findUser = userRepository.findByEmail(verificationRequestDTO.email());
+        if (findUser.isEmpty()) {
+            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "User not found or password incorrect");
+        }
+        UserEntity foundUser = findUser.get();
+
+        UserCredentialsEntity userCreds = userCredentialsRepository.findByUser_UserId(foundUser.getUserId()).orElse(null);
+        if (userCreds == null) {
+            userCreds = new UserCredentialsEntity();
+            userCreds.setUser(foundUser);
+            userCreds.setPassword(verificationRequestDTO.password());
+        }
+
         // If no username or password is provided, we can affirm that this is a guest token and should be returned as such
         if (verificationRequestDTO.isGuest()) {
             TokensEntity tokensEntity = new TokensEntity();
@@ -60,18 +73,13 @@ public class JwtService {
             tokensEntity.setRevoked(false);
             tokensRepository.save(tokensEntity);
 
+            userCreds.addToken(tokensEntity);
+            userCredentialsRepository.save(userCreds);
+
             return VerificationResponseDTO.successfulDTO(Map.of("token", tokensEntity.getToken(), "requestedRole", "GUEST"));
         }
 
-        Optional<UserEntity> findUser = userRepository.findByEmail(verificationRequestDTO.email());
-        if (findUser.isEmpty()) {
-            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "User not found or password incorrect");
-        }
-        UserEntity foundUser = findUser.get();
-
-        UserCredentialsEntity userCreds = userCredentialsRepository.findByUser_UserId(foundUser.getUserId()).orElse(null);
-
-        List<TokensEntity> tokensEntityList = userCreds == null ? new ArrayList<>() : userCreds.getTokens();
+        List<TokensEntity> tokensEntityList = userCreds == null || userCreds.getTokens() == null ? new ArrayList<>() : userCreds.getTokens();
         AccessLevel requestedRole = AccessLevel.valueOf(verificationRequestDTO.requestedRole());
         List<String> tokensAvailable = tokensEntityList.stream()
                 .filter(x-> !x.isExpired() && !x.isRevoked())
@@ -94,6 +102,10 @@ public class JwtService {
             tokensEntity.setExpired(false);
             tokensEntity.setRevoked(false);
             tokensRepository.save(tokensEntity);
+
+            userCreds.addToken(tokensEntity);
+            userCredentialsRepository.save(userCreds);
+
             tokensAvailable.add(createToken);
         }
         return VerificationResponseDTO.successfulDTO(Map.of(

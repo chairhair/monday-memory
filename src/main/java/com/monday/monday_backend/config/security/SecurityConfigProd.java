@@ -68,7 +68,8 @@ public class SecurityConfigProd {
 
                         // Guest OR user can do these:
                         .requestMatchers(
-                                "/api/memory/**"
+                                "/api/memory/**",
+                                "/user/**"
                         ).permitAll()
 
                         // Only real accounts can do billing-ish stuff:

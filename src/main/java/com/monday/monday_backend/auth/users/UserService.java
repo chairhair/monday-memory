@@ -109,7 +109,9 @@ public class UserService {
 
         // Now we have to pass in the user credentials
         UserCredentialsEntity userCredentials = new UserCredentialsEntity();
-        userCredentials.setPassword(passwordEncoder.encode(dto.password()));
+        if (dto.password() != null) {
+            userCredentials.setPassword(passwordEncoder.encode(dto.password()));
+        }
         userCredentials.setUser(newUser);
         userCredentialsRepository.save(userCredentials);
 
