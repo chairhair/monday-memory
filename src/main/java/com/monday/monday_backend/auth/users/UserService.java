@@ -14,7 +14,9 @@ import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
 import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
 import com.monday.monday_backend.memory.service.LimitsProperties;
 import com.monday.monday_backend.payment.PlanDefaultsService;
+import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
+import com.monday.monday_backend.payment.repo.PricePlanRepository;
 import com.monday.shared.auth.dto.*;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.auth.utils.ExternalProvider;
@@ -48,6 +50,7 @@ public class UserService {
     private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
     private final SessionMemoryRepository sessionMemoryRepository;
+    private final PricePlanRepository pricePlanRepository;
 
     private final PlanDefaultsService planDefaultsService;
 
@@ -125,15 +128,7 @@ public class UserService {
         ));
 
         HashSet<String> ourTokens = new HashSet<>();
-        if ((verificationDTO.authentication().get("tokens") instanceof List)) {
-            for (Object token : (List<?>) verificationDTO.authentication().get("tokens")) {
-                if (token instanceof String) {
-                    ourTokens.add((String)token);
-                } else {
-                    throw new IllegalArgumentException("Token was not considered a string...");
-                }
-            }
-        }
+        ourTokens.add((String)verificationDTO.authentication().get("token"));
 
         // Update all session memory entities that were previously included under our guest.
         List<SessionMemoryEntity> sessionMemoryEntities = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, dto.principalKey());
@@ -149,7 +144,6 @@ public class UserService {
         if (verificationDTO.statusCode() != HttpStatus.OK) {
             return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
         }
-
         // If we hit null on our dtos, we want to make sure that we still return something
         if (userPreferencesDTO == null) {
             userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, newUser);
@@ -294,6 +288,16 @@ public class UserService {
             user.addRole(role);
         }
         user.setEmail(email);
+
+        UserPlanEntity userPlan = new UserPlanEntity();
+        PricePlanEntity pricePlanEntity = pricePlanRepository.findByCode("FREE").orElseThrow(() -> {
+            throw new RuntimeException("Could not find Price plan available");
+        });
+        userPlan.setUser(user);
+        userPlan.setPlan(pricePlanEntity);
+
+        user.setUserPlan(userPlan);
+
         userRepository.save(user);
         return user;
     }
@@ -301,9 +305,9 @@ public class UserService {
     private UserUseStatsDTO generateUseStats(UserEntity user) {
         UserPlanEntity userPlan = user.getUserPlan();
 
-        Long tokensUsed = userPlan.getTokensUsed();
-        Integer topicsUsed = userPlan.getTopicsUsed();
-        Long tokensUsedMonth = userPlan.getTokensUsedMonth();
+        Long tokensUsed = (userPlan == null || userPlan.getTokensUsed() == null) ? 0 : userPlan.getTokensUsed();
+        Integer topicsUsed = (userPlan == null || userPlan.getTopicsUsed() == null) ? 0 : userPlan.getTopicsUsed();
+        Long tokensUsedMonth = (userPlan == null || userPlan.getTokensUsedMonth() == null) ? 0 :userPlan.getTokensUsedMonth();
 
         return new UserUseStatsDTO(
                 tokensUsed,
