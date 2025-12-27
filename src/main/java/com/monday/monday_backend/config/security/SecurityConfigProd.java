@@ -39,26 +39,33 @@ public class SecurityConfigProd {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(); // strength defaults to 10
     }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    @Value("${app.security.mode}") String mode,
-                                                   JwtDecoder jwtDecoder,
-                                                   Converter<Jwt,? extends AbstractAuthenticationToken> conv) throws Exception {
+                                                   JwtDecoder jwtDecoder) throws Exception {
+        var converter = new JwtGrantedAuthoritiesConverter();
+        converter.setAuthorityPrefix("SCOPE_");  // scopes -> SCOPE_mem.write
+        converter.setAuthoritiesClaimName("scope");
+
+        Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthConverter =
+                jwt -> new JwtAuthenticationToken(jwt,
+                        converter.convert(jwt),
+                        jwt.getSubject());
+
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/v1/memories", "/v1/memories/batch").hasAuthority("SCOPE_mem.write")
-                        .requestMatchers(HttpMethod.GET, "/v1/memories/**").hasAuthority("SCOPE_mem.read")
+                        .requestMatchers("/**").permitAll()
                         .anyRequest().denyAll()
-                        //.anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
         switch(mode) {
-            case "jwt" -> http.oauth2ResourceServer(o -> o.jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(conv)));
+            case "jwt" -> http.oauth2ResourceServer(o -> o.jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter)));
             //case "opaque" -> http.oauth2ResourceServer(o -> o.opaqueToken(ot -> ot.introspector(token -> token)));    // TODO: Have a method that allows us to verify our tokens later.
             case "dev" -> http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
                     .addFilterBefore(new DevImpersonationFilter(), SecurityContextHolderFilter.class);
@@ -77,14 +84,6 @@ public class SecurityConfigProd {
         OAuth2TokenValidator<Jwt> audv = new AudienceValidator(audience);
         nimbus.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerv, audv, new JwtTimestampValidator(Duration.ofMinutes(5))));
         return nimbus;
-    }
-
-    @Bean
-    Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthConverter() {
-        var converter = new JwtGrantedAuthoritiesConverter();
-        converter.setAuthorityPrefix("SCOPE_");  // scopes -> SCOPE_mem.write
-        converter.setAuthoritiesClaimName("scope");
-        return jwt -> new JwtAuthenticationToken(jwt, converter.convert(jwt), jwt.getSubject());
     }
 
     static final class AudienceValidator implements OAuth2TokenValidator<Jwt> {

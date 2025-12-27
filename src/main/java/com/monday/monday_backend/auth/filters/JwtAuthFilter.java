@@ -33,7 +33,6 @@ import static com.monday.monday_backend.auth.filters.JwtAuthHelper.*;
 /**
  * This handles our JWT authentication.
  */
-@ConditionalOnProperty(name = "app.security.jwt.enabled", havingValue = "true")
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
