@@ -29,7 +29,7 @@ public class BillingController {
                                                 @RequestBody String payload) {
         try {
             Event event = Webhook.constructEvent(payload, signature, cfg.getWebhookSecret());
-            billingService.handleStripeEvent(event);
+            billingService.handleStripeEvent(authUser, event);
             return ResponseEntity.ok("ok");
         } catch (SignatureVerificationException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid signature");

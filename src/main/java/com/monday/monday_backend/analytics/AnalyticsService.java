@@ -33,7 +33,7 @@ public class AnalyticsService {
             analyticsEntity.setPrincipalType(event.principalType());
             analyticsEntity.setSessionId(event.sessionId());
             analyticsEntity.setHttpResult(event.result().value());
-            analyticsEntity.setErrorCode(event.errorCode());
+            analyticsEntity.setMessage(event.errorCode());
             analyticsEntity.setLatencyMs(event.latencyMs());
             analyticsEntity.setOccurredAt(event.occurredAt());
             analyticsEntity.setCreatedAt(Instant.now());
