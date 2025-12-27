@@ -26,7 +26,7 @@ public class SessionOptionsEntity {
 
     @Setter
     @Column(name = "max_chunks_per_session")
-    private Integer maxChunksPerSession;
+    private Long maxChunksPerSession;
 
     @Setter
     @OneToOne(mappedBy = "options", fetch = FetchType.LAZY)

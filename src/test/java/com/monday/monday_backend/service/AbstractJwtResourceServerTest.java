@@ -32,7 +32,6 @@ public abstract class AbstractJwtResourceServerTest {
         // If you followed the “property-gated” security config:
         // - enable JWT path, disable dev bypass for this test
         r.add("app.security.jwt.enabled", () -> "true");
-        r.add("app.security.devBypass", () -> "false");
 
         // Note: Add app.security.expected-issuer/expected-audience if you want to
         r.add("monday.security.expected-issuer", () -> "https://auth.monday");

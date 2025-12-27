@@ -1,6 +1,5 @@
 package com.monday.monday_backend.memory.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.llm.LlmClient;
 import com.monday.monday_backend.memory.entity.MemoryChunkEntity;
@@ -144,7 +143,7 @@ public class MemoryService {
                 UserPlanEntity userPlanEntity = existing.getUser() == null ? null : existing.getUser().getUserPlan();
                 QuotaSnapshot snapshot = quotaService.snapshotFor(userPlanEntity);
                 SessionOptionsEntity options = existing.getOptions();
-                Integer maxChunks = (options != null) ? options.getMaxChunksPerSession() : null;
+                Long maxChunks = (options != null) ? options.getMaxChunksPerSession() : null;
 
                 if (maxChunks != null && maxChunks <= existing.getChunkCount()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Went past our max chunks");
@@ -168,7 +167,7 @@ public class MemoryService {
                 dto.source(),
                 dto.sourceConversationKey(),
                 principal.getRecordingScope(),
-                new SessionOptionRequestDTO(SessionScope.CHANNEL, 10)
+                new SessionOptionRequestDTO(SessionScope.CHANNEL, 10L)
         );
 
         SessionMemoryResponseDTO sessionDTO =

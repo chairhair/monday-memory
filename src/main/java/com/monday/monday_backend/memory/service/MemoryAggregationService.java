@@ -41,13 +41,13 @@ public class MemoryAggregationService {
 
             case LAST_N -> aggregateByNumber(
                     session,
-                    requirePositive(options.getMaxChunks(), "maxChunks")
+                    requirePositive(options.getMaxChunks().intValue(), "maxChunks")
             );
 
             case SINCE_TIME -> aggregateByTime(
                     session,
                     requireNonNull(options.getSince(), "since"),
-                    requireNonNull(options.getMaxChunks(), "maxChunks")
+                    options.getMaxChunks() != null ? options.getMaxChunks().intValue() : 10
             );
 
             case DATE_RANGE -> aggregateByDateRange(

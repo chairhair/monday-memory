@@ -61,7 +61,7 @@ public class SecurityConfigProd {
             case "jwt" -> http.oauth2ResourceServer(o -> o.jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(conv)));
             //case "opaque" -> http.oauth2ResourceServer(o -> o.opaqueToken(ot -> ot.introspector(token -> token)));    // TODO: Have a method that allows us to verify our tokens later.
             case "dev" -> http.authorizeHttpRequests(a -> a.anyRequest().permitAll())
-                    .addFilterBefore(new DevImpersonationFilter(true), SecurityContextHolderFilter.class);
+                    .addFilterBefore(new DevImpersonationFilter(), SecurityContextHolderFilter.class);
             default -> throw new IllegalStateException("Unknown app.security.mode: " + mode);
         }
         return http.build();

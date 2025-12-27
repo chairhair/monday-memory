@@ -35,7 +35,7 @@ public class SecurityConfigDev {
     }
 
     @Bean
-    DevImpersonationFilter devImpersonationFilter(@Value("${app.security.devBypass}") boolean enabled) {
-        return new DevImpersonationFilter(enabled);
+    DevImpersonationFilter devImpersonationFilter() {
+        return new DevImpersonationFilter();
     }
 }

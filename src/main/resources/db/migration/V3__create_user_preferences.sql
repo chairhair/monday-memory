@@ -7,8 +7,8 @@ CREATE TABLE user_preferences (
     session_scope VARCHAR(255) NOT NULL,
     comm_scope    VARCHAR(20)  NOT NULL,
 
-    max_chunks_per_session INTEGER,
-    max_tokens_per_session INTEGER
+    max_chunks_per_session BIGINT,
+    max_tokens_per_session BIGINT
 );
 
 -- FK name matches your @ForeignKey(name="fk_user_preferences")

@@ -25,9 +25,6 @@ import java.util.stream.StreamSupport;
  */
 final public class DevImpersonationFilter extends OncePerRequestFilter {
 
-    private final boolean enabled;
-    public DevImpersonationFilter(boolean enabled) { this.enabled = enabled; }
-
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
         throws ServletException, IOException {

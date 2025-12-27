@@ -104,7 +104,7 @@ public class SessionService {
             se.setSession(entity);
             if (request.options() == null) {
                 se.setScope(SessionScope.CHANNEL);
-                se.setMaxChunksPerSession(10);
+                se.setMaxChunksPerSession(10L);
             } else {
                 se.setScope(request.options().scope());
                 se.setMaxChunksPerSession(request.options().maxChunksPerSession());
