@@ -17,6 +17,7 @@ import com.monday.monday_backend.payment.PlanDefaultsService;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.auth.dto.*;
 import com.monday.shared.auth.utils.AccessLevel;
+import com.monday.shared.auth.utils.ExternalProvider;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionScope;
@@ -198,8 +199,27 @@ public class UserService {
                 userEntity.getUserPreferences().getMaxChunksPerSession(),
                 userEntity.getUserPreferences().getMaxTokensPerSession()
         );
+        Optional<UserCredentialsEntity> userCredentials = userCredentialsRepository.findByUser_UserId(userEntity.getUserId());
+        if (userCredentials.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Can't find any user credentials present.");
+        }
+
+        List<TokensEntity> tokens = userCredentials.get().getTokens();
+        TokensEntity foundToken = null;
+
+        for (TokensEntity token : tokens) {
+            if (ExternalProvider.fromString(token.getToken()).isEmpty()) {
+                foundToken = token;
+                break;
+            }
+        }
+
+        if (foundToken == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Can't find any user credentials present.");
+        }
+
         List<UUID> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, userEntity.getUserId().toString()).stream().map(SessionMemoryEntity::getSessionId).toList();
-        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds, generateUseStats(userEntity), options);
+        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds, foundToken.getToken(), generateUseStats(userEntity), options);
     }
 
     @Transactional
