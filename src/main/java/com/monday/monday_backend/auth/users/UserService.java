@@ -115,6 +115,8 @@ public class UserService {
                 UserExternalAccount saveAccount = new UserExternalAccount();
                 saveAccount.setUser(userEntity);
                 saveAccount.setProvider(dto.source());
+                saveAccount.setCreatedAt(Instant.now());
+                saveAccount.setExternalId(dto.principalKey());
                 userExternalAccountRepository.save(saveAccount);
             }
 
@@ -168,6 +170,8 @@ public class UserService {
             UserExternalAccount saveAccount = new UserExternalAccount();
             saveAccount.setUser(newUser);
             saveAccount.setProvider(dto.source());
+            saveAccount.setCreatedAt(Instant.now());
+            saveAccount.setExternalId(dto.principalKey());
             userExternalAccountRepository.save(saveAccount);
         }
 
