@@ -37,14 +37,19 @@ public class BillingController {
         }
     }
 
-    @GetMapping
-    public ResponseEntity<String> getResponsePage(@RequestHeader("Stripe-Signature") String signature,
-                                                @RequestBody String payload) {
-        try {
-            return ResponseEntity.ok("Payment Confirmed! Please return back to discord (don't worry, this page is totally normal! :D)");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("error");
-        }
+    @GetMapping("/success")
+    public ResponseEntity<String> successPage(
+            @RequestParam(name = "session_id", required = false) String sessionId
+    ) {
+        // optionally: verify session id, or just show a message
+        return ResponseEntity.ok(
+                "Payment confirmed! You can head back to Discord. " +
+                        "(This page is totally normal, promise 😄)"
+        );
     }
 
+    @GetMapping("/cancel")
+    public ResponseEntity<String> cancelPage() {
+        return ResponseEntity.ok("Payment was canceled. You can safely close this tab.");
+    }
 }

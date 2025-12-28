@@ -65,11 +65,19 @@ public class UserService {
         try {
             availableUUID = UUID.fromString(dto.principalKey());
         } catch (Exception ignored) {}
+
+        Optional<UserExternalAccount> userExternalAccount = userExternalAccountRepository.findByProviderAndExternalId(dto.source(), dto.principalKey());
         if (availableUUID != null) {
             existing = userRepository.findById(availableUUID).orElse(null); //
+            if (existing == null && userExternalAccount.isPresent()) {
+                existing = userExternalAccount.get().getUser();
+            }
         }
         if ((availableUUID == null || existing == null) && dto.emailAddress() != null) {
             existing = userRepository.findByEmail(dto.emailAddress()).orElse(null);
+            if (existing == null && userExternalAccount.isPresent()) {
+                existing = userExternalAccount.get().getUser();
+            }
         }
 
         UserPreferencesDTO userPreferencesDTO = dto.options();
@@ -101,6 +109,13 @@ public class UserService {
             // If we hit null on our dtos, we want to make sure that we still return something
             if (userPreferencesDTO == null) {
                 userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, userEntity);
+            }
+
+            if (userExternalAccount.isEmpty()) {
+                UserExternalAccount saveAccount = new UserExternalAccount();
+                saveAccount.setUser(userEntity);
+                saveAccount.setProvider(dto.source());
+                userExternalAccountRepository.save(saveAccount);
             }
 
             return UserResponseDTO.successfulDTO(userEntity.getUserId(), sessionIds, userEntity.getEmail(), rolesPresent, tokensList, generateUseStats(existing), userPreferencesDTO);
@@ -147,6 +162,13 @@ public class UserService {
         // If we hit null on our dtos, we want to make sure that we still return something
         if (userPreferencesDTO == null) {
             userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, newUser);
+        }
+
+        if (userExternalAccount.isEmpty()) {
+            UserExternalAccount saveAccount = new UserExternalAccount();
+            saveAccount.setUser(newUser);
+            saveAccount.setProvider(dto.source());
+            userExternalAccountRepository.save(saveAccount);
         }
 
         return UserResponseDTO.successfulDTO(newUser.getUserId(), sessionIds, newUser.getEmail(), Set.of(AccessLevel.USER), ourTokens, generateUseStats(newUser), userPreferencesDTO);
