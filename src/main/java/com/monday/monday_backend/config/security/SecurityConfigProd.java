@@ -69,6 +69,7 @@ public class SecurityConfigProd {
                         // Guest OR user can do these:
                         .requestMatchers(
                                 "/api/memory/**",
+                                "/query/**",
                                 "/user/**"
                         ).permitAll()
 
