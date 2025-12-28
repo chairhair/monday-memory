@@ -69,16 +69,18 @@ public class MemoryService {
 
         String contextText = buildContextFromChunks(chunks);
 
-        messages.add(new LlmMessage(
-                LlmMessage.Role.SYSTEM,
-                """
-                        You are MondayMemory, a personal memory assistant.
-                        You are given prior context from this user's session. Use it when relevant.
-                        
-                        Prior context (most recent first):
-                        %s
-                        """.formatted(contextText)
-        ));
+        if (!contextText.equalsIgnoreCase("No prior context...")) {
+            messages.add(new LlmMessage(
+                    LlmMessage.Role.SYSTEM,
+                    """
+                            You are MondayMemory, a personal memory assistant.
+                            You are given prior context from this user's session. Use it when relevant.
+                            
+                            Prior context (most recent first):
+                            %s
+                            """.formatted(contextText)
+            ));
+        }
 
         messages.add(new LlmMessage(LlmMessage.Role.USER, memDto.content()));
 

@@ -53,7 +53,7 @@ public class UserController {
         return null;
     }
 
-    @GetMapping("/current-plan?plan={plan}")
+    @GetMapping("/current-plan")
     public LimitsDTO getLimits(@RequestParam("plan") String plan) {
         LimitsProperties.TierLimits limit = limitsProperties.forTier(EffectivePlan.valueOf(plan));
         return new LimitsDTO(limit.getMaxTopics(), limit.getMaxSessionsPerTopic(), limit.getMonthlyTokens());
