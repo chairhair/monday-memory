@@ -1,5 +1,6 @@
 package com.monday.monday_backend.auth.users;
 
+import com.monday.shared.auth.dto.UserPreferencesDTO;
 import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.recording.RecordingScope;
 import jakarta.persistence.*;
@@ -52,4 +53,14 @@ public class UserPreferencesEntity {
     @Column(name = "max_tokens_per_session")
     private Long maxTokensPerSession;
 
+
+    public static UserPreferencesEntity fromDTOtoEntity(UserEntity user, UserPreferencesDTO dto) {
+        UserPreferencesEntity userPreferencesEntity = new UserPreferencesEntity();
+        userPreferencesEntity.setUser(user);
+        userPreferencesEntity.setScope(dto.scope());
+        userPreferencesEntity.setCommScope(dto.comScope());
+        userPreferencesEntity.setMaxChunksPerSession(dto.maxChunksPerSession());
+        userPreferencesEntity.setMaxTokensPerSession(dto.maxTokensPerSession());
+        return userPreferencesEntity;
+    }
 }

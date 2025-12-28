@@ -28,9 +28,9 @@ public class LimitsProperties {
 
     public UserPreferencesDTO toPrefsDTO(SessionScope sessionScope, RecordingScope comScope, EffectivePlan plan) {
         return switch (plan) {
-            case GUEST_FREE -> new UserPreferencesDTO(sessionScope, comScope, guest.getMaxTopics(), guest.getMonthlyTokens());
-            case USER_FREE  -> new UserPreferencesDTO(sessionScope, comScope, user.getMaxTopics(), user.getMonthlyTokens());
-            case USER_PRO   -> new UserPreferencesDTO(sessionScope, comScope, pro.getMaxTopics(), pro.getMonthlyTokens());
+            case GUEST_FREE -> new UserPreferencesDTO(sessionScope, comScope, 10L, guest.getMonthlyTokens());
+            case USER_FREE  -> new UserPreferencesDTO(sessionScope, comScope, 10L, user.getMonthlyTokens());
+            case USER_PRO   -> new UserPreferencesDTO(sessionScope, comScope, 10L, pro.getMonthlyTokens());
         };
     }
 

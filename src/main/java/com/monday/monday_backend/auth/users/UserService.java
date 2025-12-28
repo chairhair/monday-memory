@@ -3,6 +3,7 @@ package com.monday.monday_backend.auth.users;
 import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
 import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
 import com.monday.monday_backend.auth.filters.JwtService;
+import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
@@ -53,6 +54,7 @@ public class UserService {
     private final PricePlanRepository pricePlanRepository;
 
     private final PlanDefaultsService planDefaultsService;
+    private final PrincipalResolver principalResolver;
 
     private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
@@ -110,6 +112,9 @@ public class UserService {
             if (userPreferencesDTO == null) {
                 userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, userEntity);
             }
+            UserPreferencesEntity userPreferencesEntity = UserPreferencesEntity.fromDTOtoEntity(userEntity, userPreferencesDTO);
+            userEntity.setUserPreferences(userPreferencesEntity);
+            userRepository.save(userEntity);
 
             if (userExternalAccount.isEmpty()) {
                 UserExternalAccount saveAccount = new UserExternalAccount();
@@ -165,6 +170,9 @@ public class UserService {
         if (userPreferencesDTO == null) {
             userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, newUser);
         }
+        UserPreferencesEntity userPreferencesEntity = UserPreferencesEntity.fromDTOtoEntity(newUser, userPreferencesDTO);
+        newUser.setUserPreferences(userPreferencesEntity);
+        userRepository.save(newUser);
 
         if (userExternalAccount.isEmpty()) {
             UserExternalAccount saveAccount = new UserExternalAccount();
@@ -214,6 +222,11 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "External Login Request doesn't exist");
         }
         UserEntity userEntity = findExternalAccount.get().getUser();
+        if (userEntity == null) {
+            throw new IllegalStateException("Could not find user associated with the user!!!");
+        }
+
+        EffectivePlan plan = principalResolver.determineEffectivePlan(userEntity, userEntity.getUserPlan());
 
         UserPreferencesDTO options = new UserPreferencesDTO(
                 userEntity.getUserPreferences().getScope(),
@@ -241,7 +254,7 @@ public class UserService {
         }
 
         List<UUID> sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, userEntity.getUserId().toString()).stream().map(SessionMemoryEntity::getSessionId).toList();
-        return new IdentityResponseDTO(userEntity.getUserId().toString(), PrincipalType.USER, sessionIds, foundToken.getToken(), generateUseStats(userEntity), options);
+        return new IdentityResponseDTO(userEntity.getUserId().toString(), plan, sessionIds, foundToken.getToken(), generateUseStats(userEntity), options);
     }
 
     @Transactional

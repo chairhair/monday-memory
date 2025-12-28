@@ -69,7 +69,7 @@ public class PrincipalResolver {
 
         UserPlanEntity userPlan = resolveUserPlan(user);
 
-        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan, accessLevel);
+        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan);
         QuotaSnapshot quotaSnapshot = quotaService.snapshotFor(user, guest, userPlan, effectivePlan);
 
         return PrincipalContext.builder()
@@ -102,7 +102,7 @@ public class PrincipalResolver {
         AccessLevel accessLevel = accessLevelResolver.resolve(user.getRoles());
 
         UserPlanEntity userPlan = resolveUserPlan(user);
-        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan, accessLevel);
+        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan);
         QuotaSnapshot quotaSnapshot = quotaService.snapshotFor(user, guest, userPlan, effectivePlan);
 
         return PrincipalContext.builder()
@@ -126,8 +126,7 @@ public class PrincipalResolver {
     }
 
     public EffectivePlan determineEffectivePlan(UserEntity user,
-                                                 UserPlanEntity userPlan,
-                                                 AccessLevel accessLevel) {
+                                                 UserPlanEntity userPlan) {
         if (user == null) {
             return EffectivePlan.GUEST_FREE;
         }
