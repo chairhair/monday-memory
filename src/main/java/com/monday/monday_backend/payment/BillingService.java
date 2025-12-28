@@ -48,11 +48,11 @@ public class BillingService {
         EventDataObjectDeserializer deser = event.getDataObjectDeserializer();
         StripeObject obj = deser.getObject()
                 .orElseThrow(() -> new IllegalStateException("Stripe event missing data object"));
-
-        JsonObject metadata = obj.getRawJsonObject();
-        String userId = metadata.get("userId").getAsString();
-        UUID uid = UUID.fromString(userId);
-        UserEntity user = userRepository.findByUserId(uid).orElseThrow(() -> new RuntimeException("User Id could not be identified. Throwing Runtime Exception..."));
+        String custEmail = ((Customer) obj).getEmail();
+        if (custEmail == null) {
+            throw new IllegalStateException("Email required for proper registration...");
+        }
+        UserEntity user = userRepository.findByEmail(custEmail).orElseThrow(() -> new RuntimeException("User Id could not be identified. Throwing Runtime Exception..."));
 
         switch (event.getType()) {
             case "checkout.session.completed" -> onCheckoutCompleted(user, (Session) obj, event);
