@@ -54,6 +54,7 @@ public class BillingService {
             case "invoice.paid"               -> onInvoicePaid((Invoice) obj, event);
             case "customer.subscription.deleted",
                  "customer.subscription.updated" -> onSubUpdated((Subscription) obj, event);
+            case "invoice.payment_failed" -> onInvoiceDeclined((Invoice) obj, event);
             default -> {
                 // log + optionally persist PaymentEvent with type "IGNORED"
             }
@@ -112,6 +113,15 @@ public class BillingService {
                 .orElseThrow(() -> new IllegalStateException("unknown prices provided"));
 
         upsertPro(user, subId, customerId, periodEnd, pricePlanEntity);
+    }
+
+    private void onInvoiceDeclined(Invoice inv, Event event) {
+        String customerId = inv.getCustomer();
+
+        UserPlanEntity userPlan = userPlanRepository.findByStripeCustomerId(customerId).orElseThrow(() -> new RuntimeException("User Plan Id could not be identified. Throwing Runtime Exception..."));
+
+        UserEntity user = userPlan.getUser();
+        saveAnalyticsEvent(user, "Could not process credit card information because user's card declined");
     }
 
     private void onSubUpdated(Subscription sub, Event event) {

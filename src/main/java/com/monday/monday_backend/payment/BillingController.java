@@ -37,4 +37,14 @@ public class BillingController {
         }
     }
 
+    @GetMapping
+    public ResponseEntity<String> getResponsePage(@RequestHeader("Stripe-Signature") String signature,
+                                                @RequestBody String payload) {
+        try {
+            return ResponseEntity.ok("Payment Confirmed! Please return back to discord (don't worry, this page is totally normal! :D)");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("error");
+        }
+    }
+
 }
