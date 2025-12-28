@@ -48,24 +48,19 @@ public class BillingService {
         EventDataObjectDeserializer deser = event.getDataObjectDeserializer();
         StripeObject obj = deser.getObject()
                 .orElseThrow(() -> new IllegalStateException("Stripe event missing data object"));
-        String custEmail = ((Customer) obj).getEmail();
-        if (custEmail == null) {
-            throw new IllegalStateException("Email required for proper registration...");
-        }
-        UserEntity user = userRepository.findByEmail(custEmail).orElseThrow(() -> new RuntimeException("User Id could not be identified. Throwing Runtime Exception..."));
 
         switch (event.getType()) {
-            case "checkout.session.completed" -> onCheckoutCompleted(user, (Session) obj, event);
-            case "invoice.paid"               -> onInvoicePaid(user, (Invoice) obj, event);
+            case "checkout.session.completed" -> onCheckoutCompleted((Session) obj, event);
+            case "invoice.paid"               -> onInvoicePaid((Invoice) obj, event);
             case "customer.subscription.deleted",
-                 "customer.subscription.updated" -> onSubUpdated(user, (Subscription) obj, event);
+                 "customer.subscription.updated" -> onSubUpdated((Subscription) obj, event);
             default -> {
                 // log + optionally persist PaymentEvent with type "IGNORED"
             }
         }
     }
 
-    private void onCheckoutCompleted(UserEntity user, Session session, Event event) {
+    private void onCheckoutCompleted(Session session, Event event) {
         final String customerId = session.getCustomer();
         final String subId      = session.getSubscription();
 
@@ -73,7 +68,9 @@ public class BillingService {
             throw new IllegalStateException("Missing customer or subscription on session");
         }
 
-        savePayment(user, event);
+        UserPlanEntity userPlan = userPlanRepository.findByStripeCustomerId(customerId).orElseThrow(() -> new RuntimeException("User Plan Id could not be identified. Throwing Runtime Exception..."));
+
+        UserEntity user = savePayment(userPlan, event);
 
         SubscriptionRetrieveParams subParams = SubscriptionRetrieveParams.builder()
                 .addExpand("items.data.price")
@@ -97,13 +94,15 @@ public class BillingService {
         upsertPro(user, sub.getId(), customerId, periodEnd, pricePlanEntity);
     }
 
-    private void onInvoicePaid(UserEntity user, Invoice inv, Event event) {
+    private void onInvoicePaid(Invoice inv, Event event) {
         String customerId = inv.getCustomer();
-        String subId = (inv.getMetadata() != null)
-                ? inv.getMetadata().get("subscription_id")
+        String subId = (inv.getLines().getData().getFirst().getSubscription() != null)
+                ? inv.getLines().getData().getFirst().getSubscription()
                 : null;
 
-        savePayment(user, event);
+        UserPlanEntity userPlan = userPlanRepository.findByStripeCustomerId(customerId).orElseThrow(() -> new RuntimeException("User Plan Id could not be identified. Throwing Runtime Exception..."));
+
+        UserEntity user = savePayment(userPlan, event);
 
         InvoiceLineItem lineItem = inv.getLines().getData().getFirst();
         Instant periodEnd = Instant.ofEpochSecond(lineItem.getPeriod().getEnd());
@@ -115,11 +114,13 @@ public class BillingService {
         upsertPro(user, subId, customerId, periodEnd, pricePlanEntity);
     }
 
-    private void onSubUpdated(UserEntity user, Subscription sub, Event event) {
+    private void onSubUpdated(Subscription sub, Event event) {
         String customerId = sub.getCustomer();
         String priceId    = sub.getItems().getData().getFirst().getPrice().getId();
 
-        savePayment(user, event);
+        UserPlanEntity userPlan = userPlanRepository.findByStripeCustomerId(customerId).orElseThrow(() -> new RuntimeException("User Plan Id could not be identified. Throwing Runtime Exception..."));
+
+        UserEntity user = savePayment(userPlan, event);
 
         PricePlanEntity pricePlanEntity = pricePlanRepository.findByStripePriceId(priceId)
                 .orElseThrow(() -> new IllegalStateException("unknown prices provided"));
@@ -149,7 +150,7 @@ public class BillingService {
         user.setUserPlan(plan);
         userRepository.save(user);
 
-        saveAnalyticsEvent(user.getUserId().toString(), "Customer subscribed to a new plan: "+pricePlanEntity.getDisplayName());
+        saveAnalyticsEvent(user, "Customer subscribed to a new plan: "+pricePlanEntity.getDisplayName());
     }
 
     private void setTier(UserEntity user, PricePlanEntity tier, String cust, String sub, Instant periodEnd) {
@@ -166,22 +167,27 @@ public class BillingService {
         user.setUserPlan(plan);
         userRepository.save(user);
 
-        saveAnalyticsEvent(user.getUserId().toString(), "Customer updated to a new plan: "+tier.getDisplayName());
+        saveAnalyticsEvent(user, "Customer updated to a new plan: "+tier.getDisplayName());
     }
 
-    private void saveAnalyticsEvent(String userId, String message) {
+    private void saveAnalyticsEvent(UserEntity user, String message) {
         AnalyticsEventEntity analyticsEvent = new AnalyticsEventEntity();
         analyticsEvent.setEventName(AnalyticsEventName.PAYMENT);
-        analyticsEvent.setPrincipalKey(userId);
+        analyticsEvent.setUser(user);
+        analyticsEvent.setPrincipalKey(user.getUserId().toString());
         analyticsEvent.setPrincipalType(PrincipalType.USER);
         analyticsEvent.setMessage(message);
+        analyticsEvent.setCreatedAt(Instant.now());
         analyticsEvent.setOccurredAt(Instant.now());
 
         analyticsRepository.save(analyticsEvent);
     }
 
-    private void savePayment(UserEntity user, Event event) {
-
+    private UserEntity savePayment(UserPlanEntity userPlan, Event event) {
+        UserEntity user = userPlan.getUser();
+        if (user == null) {
+            throw new IllegalStateException("Cannot have no user assigned to our plan");
+        }
         PaymentEvent pe = new PaymentEvent();
         pe.setStripeEventId(event.getId());
         pe.setType(event.getType());
@@ -190,6 +196,7 @@ public class BillingService {
         pe.setUser(user);
         paymentEventRepository.save(pe);
 
-        saveAnalyticsEvent(user.getUserId().toString(), "User payment saved under the payments event table!");
+        saveAnalyticsEvent(user, "User payment saved under the payments event table!");
+        return user;
     }
 }
