@@ -25,6 +25,7 @@ import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.memory.session.utils.SessionState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -54,32 +55,63 @@ public class MemoryService {
     public ResponseMemoryChunkDTO query(PrincipalContext principal,
                                         RequestMemoryQueryDTO dto) {
 
-        quotaService.reset(principal.getUserPlan());
+        quotaService.resetTokensIfMonthPassed(principal.getUserPlan());
 
+        QuotaSnapshot currentUserSnapshot = quotaService.snapshotFor(principal.getUser(), principal.getGuest(), principal.getUserPlan(), principal.getPlan());
+        QuotaDecision systemDecision = quotaService.decide(currentUserSnapshot);
+        if (systemDecision.compareTo(QuotaDecision.BLOCK) == 0) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
+        }
+
+        // Since RequestMemoryChunk has a session ID associated with it, it must be a strict check to see if
+        //  - Any sessions currently map
+        //  - If none map, don't include any
+        // To do this, it must be explicit that we DON'T consider the sessionId that memDTO is using.
         RequestMemoryChunkDTO memDto = dto.memoryChunkDTO();
         MemoryAggregationOptions options = dto.options().toBuilder();
+        UUID currentSessionId = memDto.sessionId();
+
+        Instant since = options.getSince();
+        Instant until = options.getUntil();
+
+        long totalTokenCount = currentUserSnapshot.getTokensUsed() + (memDto.content().length() / 4);
+
+        if (currentUserSnapshot.getTokenLimit() <= totalTokenCount) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
+        }
 
         // 1) Ensure we have a session for this principal
-        SessionMemoryEntity session = resolveOrCreateSession(principal, memDto);
+        List<SessionMemoryEntity> ourSessions = sessionService.getUserSessions(principal, since, until);
 
         // 2) Build LLM context from past chunks in that session
         List<LlmMessage> messages = new ArrayList<>();
 
-        List<MemoryChunkEntity> chunks = memoryAggregationService.aggregate(session, options);
+        HashMap<String, List<MemoryChunkEntity>> chunks = new HashMap<>();
+        for (SessionMemoryEntity session : ourSessions) {
+            if (session.getSessionId() == memDto.sessionId()) { continue; }
+            chunks.put(session.getSessionId().toString(), memoryAggregationService.aggregate(session, options));
+        }
 
         String contextText = buildContextFromChunks(chunks);
+
+        String formattedContext = """
+                            You are MondayMemory, a personal memory assistant.
+                            You are given prior context from prior user sessions. Use it when relevant.
+                            
+                            Prior context (most recent first):
+                            %s
+                            """.formatted(contextText);
 
         if (!contextText.equalsIgnoreCase("No prior context...")) {
             messages.add(new LlmMessage(
                     LlmMessage.Role.SYSTEM,
-                    """
-                            You are MondayMemory, a personal memory assistant.
-                            You are given prior context from this user's session. Use it when relevant.
-                            
-                            Prior context (most recent first):
-                            %s
-                            """.formatted(contextText)
+                    formattedContext
             ));
+        }
+
+        totalTokenCount += (formattedContext.length() / 4);
+        if (currentUserSnapshot.getTokenLimit() <= totalTokenCount) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
         }
 
         messages.add(new LlmMessage(LlmMessage.Role.USER, memDto.content()));
@@ -96,20 +128,33 @@ public class MemoryService {
         );
 
         LlmResponseDTO llmResponseDTO = llmClient.chat(llmRequestDTO);
+        quotaService.incrementTokensUsed(principal.getUserPlan(), llmResponseDTO.usage().totalTokens());
 
-        MemoryChunkEntity userChunk =
-                memoryChunkUtils.forUserMessage(session, memDto.content(), memDto.source().toString());
-        MemoryChunkEntity assistantChunk =
-                memoryChunkUtils.forAssistantMessage(session, llmResponseDTO.content(), memDto.source().toString());
+        SessionMemoryEntity session = sessionService.getSessionPresent(currentSessionId, principal, false);
 
-        memoryChunkRepository.save(userChunk);
-        memoryChunkRepository.save(assistantChunk);
+        // If we're still recording, now is the time that we incorporate the session data.
+        if (session != null) {
+            MemoryChunkEntity userChunk =
+                    memoryChunkUtils.forUserMessage(session, memDto.content(), memDto.source().toString());
+            MemoryChunkEntity assistantChunk =
+                    memoryChunkUtils.forAssistantMessage(session, llmResponseDTO.content(), memDto.source().toString());
 
-        // 4) Map to response DTO
-        SessionMemoryEntity sessionMemory = sessionService.updateChunkCount(assistantChunk.getSession(), 2);
+            memoryChunkRepository.save(userChunk);
+            memoryChunkRepository.save(assistantChunk);
 
-        // TODO: Ignoring tags for now.
-        return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(assistantChunk.getContent()), sessionMemory.getPrincipalType(), sessionMemory.getPrincipalId(), Instant.now(), null);
+            // 4) Map to response DTO
+            SessionMemoryEntity sessionMemory = sessionService.updateChunkCount(assistantChunk.getSession(), 2);
+
+            // TODO : Tags ignored for now
+            return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(assistantChunk.getContent()), sessionMemory.getPrincipalType(), sessionMemory.getPrincipalId(), Instant.now(), null);
+        }
+
+        return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(Map.of(
+                "kind", "chat_message",
+                "role", "ASSISTANT",
+                "text", llmResponseDTO.content(),
+                "source", memDto.source()
+        )), principal.getPrincipalType(), principal.getPrincipalId().toString(), Instant.now(), null);
     }
 
     /**
@@ -130,36 +175,55 @@ public class MemoryService {
 
     // ---------------- internal helpers ----------------
 
+    private SessionMemoryEntity findSession(PrincipalContext principal, UUID sessionId, boolean throwExceptionOnFail) {
+        SessionMemoryEntity existing =
+                sessionService.getSessionPresent(sessionId, principal, false);
+        if (existing != null) {
+            if (!Objects.equals(existing.getPrincipalId(), principal.getPrincipalId().toString())
+                    || existing.getPrincipalType() != principal.getPrincipalType()) {
+                if (throwExceptionOnFail) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User and Principal did not match up");
+                }
+                return null;
+            }
+
+            // This is the freshest version of our user entity. Thus, we should represent it as so
+            UserPlanEntity userPlanEntity = existing.getUser() == null ? null : existing.getUser().getUserPlan();
+            QuotaSnapshot snapshot = quotaService.snapshotFor(userPlanEntity);
+            SessionOptionsEntity options = existing.getOptions();
+            Long maxChunks = (options != null) ? options.getMaxChunksPerSession() : null;
+
+            if (maxChunks != null && maxChunks <= existing.getChunkCount()) {
+                if (throwExceptionOnFail) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Went past our max chunks");
+                }
+                return null;
+            }
+            if (snapshot == null) {
+                if (throwExceptionOnFail) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Snapshot is considered null");
+                }
+                return null;
+            }
+            if (quotaService.decide(snapshot) == QuotaDecision.BLOCK) {
+                if (throwExceptionOnFail) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot process quota because it's reached it's limits on tokens/topics");
+                }
+                return null;
+            }
+            return existing;
+        } else {
+            if (throwExceptionOnFail) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session Id has either been expired or lost");
+            }
+        }
+        return null;
+    }
+
     private SessionMemoryEntity resolveOrCreateSession(PrincipalContext principal,
                                                        RequestMemoryChunkDTO dto) {
         if (dto.sessionId() != null) {
-            SessionMemoryEntity existing =
-                    sessionService.getSessionPresent(dto.sessionId(), principal, false);
-            if (existing != null) {
-                if (!Objects.equals(existing.getPrincipalId(), principal.getPrincipalId().toString())
-                    || existing.getPrincipalType() != principal.getPrincipalType()) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User and Principal did not match up");
-                }
-
-                // This is the freshest version of our user entity. Thus, we should represent it as so
-                UserPlanEntity userPlanEntity = existing.getUser() == null ? null : existing.getUser().getUserPlan();
-                QuotaSnapshot snapshot = quotaService.snapshotFor(userPlanEntity);
-                SessionOptionsEntity options = existing.getOptions();
-                Long maxChunks = (options != null) ? options.getMaxChunksPerSession() : null;
-
-                if (maxChunks != null && maxChunks <= existing.getChunkCount()) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Went past our max chunks");
-                }
-                if (snapshot == null) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Snapshot is considered null");
-                }
-                if (quotaService.decide(snapshot) == QuotaDecision.BLOCK) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot process quota because it's reached it's limits on tokens/topics");
-                }
-                return existing;
-            } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session Id has either been expired or lost");
-            }
+            return findSession(principal, dto.sessionId(), true);
         }
 
         // If we don't have an existing session, create one
@@ -223,7 +287,7 @@ public class MemoryService {
         return newChunk;
     }
 
-    private String buildContextFromChunks(List<MemoryChunkEntity> chunks) {
+    private String buildContextFromChunks(HashMap<String,List<MemoryChunkEntity>> chunks) {
         return memoryChunkUtils.buildContext(chunks);
     }
 

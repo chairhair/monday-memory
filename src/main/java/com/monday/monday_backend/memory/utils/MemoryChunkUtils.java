@@ -172,7 +172,7 @@ public class MemoryChunkUtils {
      *
      * If the structure is different, we fall back to JSON for that chunk.
      */
-    public String buildContext(List<MemoryChunkEntity> chunks) {
+    public String buildContext(HashMap<String,List<MemoryChunkEntity>> chunks) {
         if (chunks == null || chunks.isEmpty()) {
             return "No prior context.";
         }
@@ -181,10 +181,13 @@ public class MemoryChunkUtils {
 
         // We assume caller is already giving us "most recent first" (e.g. ORDER BY occurredAt DESC).
         // We'll keep that order, top to bottom, so the LLM sees recent stuff first.
-        for (MemoryChunkEntity chunk : chunks) {
-            String line = renderChunkForContext(chunk);
-            if (!line.isBlank()) {
-                sb.append(line).append("\n");
+        for (Map.Entry<String, List<MemoryChunkEntity>> chunkWithSession : chunks.entrySet()) {
+            sb.append("Session Id - ").append(chunkWithSession.getKey());
+            for (MemoryChunkEntity chunk : chunkWithSession.getValue()) {
+                String line = renderChunkForContext(chunk);
+                if (!line.isBlank()) {
+                    sb.append(line).append("\n");
+                }
             }
         }
 

@@ -15,6 +15,8 @@ import com.monday.shared.memory.session.utils.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -32,6 +34,7 @@ public class SessionService {
     private final SessionMemoryRepository sessionMemoryRepository;
     private final MemoryAggregationService memoryAggregationService;
     private final MemoryChunkUtils memoryChunkUtils;
+    private static final int MAX_SESSIONS_PER_QUERY = 20;
 
     public RecallResponseDTO recallSessionInfo(PrincipalContext principal, RecallRequestDTO request) {
         SessionMemoryEntity session = getSessionPresent(request.sessionId(), principal, false);
@@ -136,27 +139,21 @@ public class SessionService {
     }
 
     /**
-     * Lookup a session by source conversation key for this principal.
+     * Lookup a session at for this principal.
      */
-    public SessionMemoryResponseDTO getSessionBySourceConversation(PrincipalContext principal,
-                                                                   String sourceConversationKey) {
+    public List<SessionMemoryEntity> getUserSessions(PrincipalContext principal,
+                                                    Instant since, Instant until) {
         String principalId = principal.getPrincipalId().toString();
         PrincipalType principalType = principal.getPrincipalType();
 
-        Optional<SessionMemoryEntity> sessionMemoryEntity =
-                sessionMemoryRepository.findTopBySourceConversationAndPrincipalTypeAndPrincipalIdOrderByUpdatedAtDesc(
-                        sourceConversationKey,
-                        principalType,
-                        principalId
-                );
 
-        if (sessionMemoryEntity.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "No session found for this conversation");
-        }
-
-        SessionMemoryEntity entity = sessionMemoryEntity.get();
-        return entity.toDTO(HttpStatus.OK, entity.getScope(), "Found Source Conversation");
+        return sessionMemoryRepository.findSessionsForPrincipal(
+                principalType,
+                principalId,
+                since,
+                until,
+                PageRequest.of(0, MAX_SESSIONS_PER_QUERY)
+        ).getContent();
     }
 
     /**

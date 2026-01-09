@@ -97,12 +97,23 @@ public class SimpleQuotaService implements QuotaService {
     }
 
     @Override
-    public void reset(UserPlanEntity userPlan) {
+    public void resetTokensIfMonthPassed(UserPlanEntity userPlan) {
         if (userPlan == null) {
             throw new IllegalStateException("Cannot continue; userPlan does not exist");
         }
 
         userPlanRepository.ensureCurrentMonthBucket(userPlan.getId(), MonthKey.currentUtcYYYYMM(clock));
+    }
+
+    @Override
+    public void incrementTokensUsed(UserPlanEntity userPlan, long tokens) {
+        userPlan.setTokensUsed(userPlan.getTokensUsed() + tokens);
+        userPlan.setTokensUsedMonth(userPlan.getTokensUsedMonth() + tokens);
+    }
+
+    @Override
+    public void incrementTopicsUsed(UserPlanEntity userPlan, int topics) {
+        //TODO: This hasn't been implemented yet
     }
 
     @Override

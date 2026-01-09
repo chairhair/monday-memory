@@ -18,7 +18,11 @@ public interface QuotaService {
 
     QuotaDecision decide(QuotaSnapshot snapshot);
 
-    void reset(UserPlanEntity userPlan);
+    void incrementTokensUsed(UserPlanEntity userPlan, long tokens);
+
+    void incrementTopicsUsed(UserPlanEntity userPlan, int topics);
+
+    void resetTokensIfMonthPassed(UserPlanEntity userPlan);
 
     String buildWarningMessage(PrincipalContext principal);
 }
