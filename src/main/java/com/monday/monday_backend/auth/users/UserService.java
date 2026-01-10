@@ -241,7 +241,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Can't find any user credentials present.");
         }
 
-        List<TokensEntity> tokens = userCredentials.get().getTokens();
+        List<TokensEntity> tokens = userCredentials.getTokens();
         TokensEntity foundToken = null;
 
         for (TokensEntity token : tokens) {
