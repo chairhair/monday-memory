@@ -3,19 +3,29 @@ package com.monday.monday_backend.auth.principal;
 import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.auth.users.UserEntity;
+import com.monday.monday_backend.auth.users.UserPreferencesEntity;
 import com.monday.monday_backend.auth.users.UserRepository;
+import com.monday.monday_backend.communication.entity.UserExternalAccount;
+import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
+import com.monday.monday_backend.memory.service.LimitsProperties;
 import com.monday.monday_backend.memory.service.QuotaService;
 import com.monday.monday_backend.payment.PlanDefaultsService;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.shared.auth.utils.AccessLevel;
+import com.monday.shared.auth.utils.ExternalProvider;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaSnapshot;
 import com.monday.shared.memory.session.GuestHandle;
 import com.monday.shared.memory.session.utils.GuestSource;
 import com.monday.shared.memory.session.utils.PrincipalType;
+import com.monday.shared.memory.session.utils.SessionScope;
+import com.monday.shared.recording.RecordingScope;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -25,14 +35,17 @@ import java.util.UUID;
  * Users-FREE = Persistent memory with heavy limitations
  * Users-PRO = Persistent memory with paid features
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PrincipalResolver {
     private final GuestService guestService;
     private final UserRepository userRepository;
+    private final UserExternalAccountRepository userExternalAccountRepository;
     private final PlanDefaultsService planDefaultsService;
     private final AccessLevelResolver accessLevelResolver;
     private final QuotaService quotaService;
+    private final LimitsProperties limits;
 
 
     /**
@@ -51,6 +64,27 @@ public class PrincipalResolver {
     public PrincipalContext fromGuest(String guestKey, GuestSource source) {
         GuestEntity guest = guestService.getOrCreateGuest(guestKey, source);
         UserEntity user = guest.getUser(); // depending on your GuestService, this may always be non-null
+
+
+        UserPreferencesEntity userPreferences = new UserPreferencesEntity();
+        userPreferences.setUser(user);
+        userPreferences.setCommScope(RecordingScope.PRIVATE);
+        userPreferences.setScope(SessionScope.CHANNEL);
+        userPreferences.setMaxTokensPerSession(limits.getGuest().getMonthlyTokens());
+        userPreferences.setMaxChunksPerSession(10L);
+        user.setUserPreferences(userPreferences);
+
+        Optional<ExternalProvider> currentProvider = ExternalProvider.fromString(source.name());
+        if (currentProvider.isPresent()) {
+            UserExternalAccount userExternalAccount = new UserExternalAccount();
+            userExternalAccount.setExternalId(guestKey);
+            userExternalAccount.setProvider(currentProvider.get());
+            userExternalAccount.setCreatedAt(Instant.now());
+            userExternalAccount.setUser(user);
+            userExternalAccountRepository.save(userExternalAccount);
+        } else {
+            log.warn("Could not save the external user account to it's linker repo");
+        }
 
         PrincipalType principalType;
         UUID principalId;

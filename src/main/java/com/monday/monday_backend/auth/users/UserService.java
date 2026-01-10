@@ -235,6 +235,9 @@ public class UserService {
                 userEntity.getUserPreferences().getMaxTokensPerSession()
         );
         Optional<UserCredentialsEntity> userCredentials = userCredentialsRepository.findByUser_UserId(userEntity.getUserId());
+        if (userCredentials.isEmpty() && plan == EffectivePlan.GUEST_FREE) {
+            return new IdentityResponseDTO(userEntity.getUserId().toString(), plan, null, null, generateUseStats(userEntity), options);
+        }
         if (userCredentials.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Can't find any user credentials present.");
         }
