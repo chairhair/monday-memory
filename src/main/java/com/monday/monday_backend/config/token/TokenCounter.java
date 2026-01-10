@@ -2,9 +2,11 @@ package com.monday.monday_backend.config.token;
 
 import com.knuddels.jtokkit.api.Encoding;
 import com.monday.shared.llm.LlmMessage;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Component
 public class TokenCounter {
 
     private final Encoding encoding;
