@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,7 +62,10 @@ public class SessionService {
 
         // 4. Aggregate + build context
         List<MemoryChunkEntity> chunks = memoryAggregationService.aggregate(session, options);
-        String context = memoryChunkUtils.buildContext(chunks);
+
+        HashMap<String,List<MemoryChunkEntity>> sessionChunkMap = new HashMap<>();
+        sessionChunkMap.put(session.getSessionId().toString(), chunks);
+        String context = memoryChunkUtils.buildContext(sessionChunkMap);
 
         return new RecallResponseDTO(
                 context,
