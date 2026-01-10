@@ -3,9 +3,11 @@ package com.monday.monday_backend.memory.service;
 import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.principal.PrincipalContext;
 import com.monday.monday_backend.auth.users.UserEntity;
+import com.monday.monday_backend.config.token.TokenCounter;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
 import com.monday.monday_backend.payment.utils.MonthKey;
+import com.monday.shared.llm.LlmMessage;
 import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.quota.QuotaDecision;
 import com.monday.shared.memory.quota.QuotaSnapshot;
@@ -14,6 +16,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.util.List;
 
 @Primary
 @Service
@@ -21,6 +24,7 @@ import java.time.Clock;
 public class SimpleQuotaService implements QuotaService {
 
     private final Clock clock;
+    private final TokenCounter tokenCounter;
     private final UserPlanRepository userPlanRepository;
 
     private final LimitsProperties limits;
@@ -94,6 +98,16 @@ public class SimpleQuotaService implements QuotaService {
         }
 
         return QuotaDecision.ALLOW;
+    }
+
+    @Override
+    public long countTokens(String content) {
+        return tokenCounter.estimateContentTokens(content);
+    }
+
+    @Override
+    public long countTokens(List<LlmMessage> messages) {
+        return tokenCounter.estimateChatTokens(messages);
     }
 
     @Override

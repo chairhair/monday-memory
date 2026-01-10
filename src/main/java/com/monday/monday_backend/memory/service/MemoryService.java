@@ -63,10 +63,7 @@ public class MemoryService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
         }
 
-        // Since RequestMemoryChunk has a session ID associated with it, it must be a strict check to see if
-        //  - Any sessions currently map
-        //  - If none map, don't include any
-        // To do this, it must be explicit that we DON'T consider the sessionId that memDTO is using.
+        // We build recall context from prior sessions excluding the current one, to avoid echoing the live conversation while recording continues.
         RequestMemoryChunkDTO memDto = dto.memoryChunkDTO();
         MemoryAggregationOptions options = dto.options().toBuilder();
         UUID currentSessionId = memDto.sessionId();
@@ -74,7 +71,7 @@ public class MemoryService {
         Instant since = options.getSince();
         Instant until = options.getUntil();
 
-        long totalTokenCount = currentUserSnapshot.getTokensUsed() + (memDto.content().length() / 4);
+        long totalTokenCount = currentUserSnapshot.getTokensUsed() + quotaService.countTokens(memDto.content());
 
         if (currentUserSnapshot.getTokenLimit() <= totalTokenCount) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
@@ -88,7 +85,7 @@ public class MemoryService {
 
         HashMap<String, List<MemoryChunkEntity>> chunks = new HashMap<>();
         for (SessionMemoryEntity session : ourSessions) {
-            if (session.getSessionId() == memDto.sessionId()) { continue; }
+            if (memDto.sessionId() != null && memDto.sessionId().equals(session.getSessionId())) { continue; }
             chunks.put(session.getSessionId().toString(), memoryAggregationService.aggregate(session, options));
         }
 
@@ -109,7 +106,8 @@ public class MemoryService {
             ));
         }
 
-        totalTokenCount += (formattedContext.length() / 4);
+        totalTokenCount = currentUserSnapshot.getTokensUsed() + quotaService.countTokens(messages);
+
         if (currentUserSnapshot.getTokenLimit() <= totalTokenCount) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
         }
@@ -122,7 +120,7 @@ public class MemoryService {
                 null,                        // temperature
                 null,                        // maxTokens/timeout
                 principal.getPrincipalId().toString(),// userId
-                memDto.sessionId().toString(),  // sessionId
+                memDto.sessionId() != null ? memDto.sessionId().toString() : null,  // sessionId
                 null,                        // metadata
                 null                         // providerOverride
         );
@@ -143,10 +141,10 @@ public class MemoryService {
             memoryChunkRepository.save(assistantChunk);
 
             // 4) Map to response DTO
-            SessionMemoryEntity sessionMemory = sessionService.updateChunkCount(assistantChunk.getSession(), 2);
+            sessionService.updateChunkCount(assistantChunk.getSession(), 2);
 
             // TODO : Tags ignored for now
-            return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(assistantChunk.getContent()), sessionMemory.getPrincipalType(), sessionMemory.getPrincipalId(), Instant.now(), null);
+            return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(assistantChunk.getContent()), principal.getPrincipalType(), principal.getPrincipalId().toString(), Instant.now(), null);
         }
 
         return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(Map.of(
