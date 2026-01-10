@@ -1,5 +1,7 @@
 package com.monday.monday_backend.auth.principal;
 
+import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
+import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
 import com.monday.monday_backend.auth.guests.GuestEntity;
 import com.monday.monday_backend.auth.guests.GuestService;
 import com.monday.monday_backend.auth.users.UserEntity;
@@ -42,6 +44,7 @@ public class PrincipalResolver {
     private final GuestService guestService;
     private final UserRepository userRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
+    private final UserCredentialsRepository userCredentialsRepository;
     private final PlanDefaultsService planDefaultsService;
     private final AccessLevelResolver accessLevelResolver;
     private final QuotaService quotaService;
@@ -66,6 +69,8 @@ public class PrincipalResolver {
         UserEntity user = guest.getUser(); // depending on your GuestService, this may always be non-null
 
 
+        UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
+
         UserPreferencesEntity userPreferences = new UserPreferencesEntity();
         userPreferences.setUser(user);
         userPreferences.setCommScope(RecordingScope.PRIVATE);
@@ -89,7 +94,7 @@ public class PrincipalResolver {
         PrincipalType principalType;
         UUID principalId;
 
-        if (user != null && user.getRoles().stream().anyMatch(x -> x.getAccessLevel().equals(AccessLevel.ADMIN) || x.getAccessLevel().equals(AccessLevel.USER))) {
+        if (userCredentials != null && user.getRoles().stream().anyMatch(x -> x.getAccessLevel().equals(AccessLevel.ADMIN) || x.getAccessLevel().equals(AccessLevel.USER))) {
             principalType = PrincipalType.USER;
             principalId = user.getUserId();
         } else {
@@ -97,13 +102,13 @@ public class PrincipalResolver {
             principalId = guest.getGuestId();
         }
 
-        AccessLevel accessLevel = user != null
+        AccessLevel accessLevel = userCredentials != null
                 ? accessLevelResolver.resolve(user.getRoles())
                 : AccessLevel.GUEST;
 
         UserPlanEntity userPlan = resolveUserPlan(user);
 
-        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan);
+        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan, userCredentials);
         QuotaSnapshot quotaSnapshot = quotaService.snapshotFor(user, guest, userPlan, effectivePlan);
 
         return PrincipalContext.builder()
@@ -124,11 +129,13 @@ public class PrincipalResolver {
     public PrincipalContext fromAuthUser(AuthUser authUser, GuestSource guestSource) {
         UserEntity user = userRepository.findByUserId(UUID.fromString(authUser.id()))
                 .orElseThrow(() -> new IllegalStateException("User not found: " + authUser.id()));
+        UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
 
         // You can either:
         //  - resolve a canonical guest per user+source, OR
         //  - allow guest to be null here.
         GuestEntity guest = guestService.getOrCreateGuestForUser(user, guestSource);
+
 
         PrincipalType principalType = PrincipalType.USER;
         UUID principalId = user.getUserId();
@@ -136,7 +143,7 @@ public class PrincipalResolver {
         AccessLevel accessLevel = accessLevelResolver.resolve(user.getRoles());
 
         UserPlanEntity userPlan = resolveUserPlan(user);
-        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan);
+        EffectivePlan effectivePlan = determineEffectivePlan(user, userPlan, userCredentials);
         QuotaSnapshot quotaSnapshot = quotaService.snapshotFor(user, guest, userPlan, effectivePlan);
 
         return PrincipalContext.builder()
@@ -160,8 +167,9 @@ public class PrincipalResolver {
     }
 
     public EffectivePlan determineEffectivePlan(UserEntity user,
-                                                 UserPlanEntity userPlan) {
-        if (user == null) {
+                                                UserPlanEntity userPlan,
+                                                UserCredentialsEntity userCreds) {
+        if (user == null || userCreds == null) {
             return EffectivePlan.GUEST_FREE;
         }
 

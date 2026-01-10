@@ -226,19 +226,18 @@ public class UserService {
             throw new IllegalStateException("Could not find user associated with the user!!!");
         }
 
-        EffectivePlan plan = principalResolver.determineEffectivePlan(userEntity, userEntity.getUserPlan());
-
         UserPreferencesDTO options = new UserPreferencesDTO(
                 userEntity.getUserPreferences().getScope(),
                 userEntity.getUserPreferences().getCommScope(),
                 userEntity.getUserPreferences().getMaxChunksPerSession(),
                 userEntity.getUserPreferences().getMaxTokensPerSession()
         );
-        Optional<UserCredentialsEntity> userCredentials = userCredentialsRepository.findByUser_UserId(userEntity.getUserId());
-        if (userCredentials.isEmpty() && plan == EffectivePlan.GUEST_FREE) {
+        UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(userEntity.getUserId()).orElse(null);
+        EffectivePlan plan = principalResolver.determineEffectivePlan(userEntity, userEntity.getUserPlan(), userCredentials);
+        if (userCredentials == null && plan == EffectivePlan.GUEST_FREE) {
             return new IdentityResponseDTO(userEntity.getUserId().toString(), plan, null, null, generateUseStats(userEntity), options);
         }
-        if (userCredentials.isEmpty()) {
+        if (userCredentials == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Can't find any user credentials present.");
         }
 
