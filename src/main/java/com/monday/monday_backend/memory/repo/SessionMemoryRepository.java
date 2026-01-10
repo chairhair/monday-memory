@@ -38,17 +38,11 @@ public interface SessionMemoryRepository extends JpaRepository<SessionMemoryEnti
     @Query("""
         SELECT s
         FROM SessionMemoryEntity s
-        WHERE s.principalType = :principalType
-          AND s.principalId = :principalId
-          AND (:since IS NULL OR s.updatedAt >= :since)
-          AND (:until IS NULL OR s.updatedAt <= :until)
+        WHERE s.principalId = :principalId
         ORDER BY s.updatedAt DESC
     """)
     Page<SessionMemoryEntity> findSessionsForPrincipal(
-            @Param("principalType") PrincipalType principalType,
             @Param("principalId") String principalId,
-            @Param("since") Instant since,
-            @Param("until") Instant until,
             Pageable pageable
     );
 

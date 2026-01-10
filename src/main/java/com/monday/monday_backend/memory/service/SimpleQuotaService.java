@@ -121,8 +121,19 @@ public class SimpleQuotaService implements QuotaService {
 
     @Override
     public void incrementTokensUsed(UserPlanEntity userPlan, long tokens) {
-        userPlan.setTokensUsed(userPlan.getTokensUsed() + tokens);
-        userPlan.setTokensUsedMonth(userPlan.getTokensUsedMonth() + tokens);
+        if (userPlan.getTokensUsed() == null) {
+            userPlan.setTokensUsed(tokens);
+        }
+        else {
+            userPlan.setTokensUsed(userPlan.getTokensUsed() + tokens);
+        }
+        if (userPlan.getTokensUsedMonth() == null) {
+            userPlan.setTokensUsedMonth(tokens);
+        }
+        else {
+            userPlan.setTokensUsedMonth(userPlan.getTokensUsedMonth() + tokens);
+        }
+        userPlanRepository.save(userPlan);
     }
 
     @Override

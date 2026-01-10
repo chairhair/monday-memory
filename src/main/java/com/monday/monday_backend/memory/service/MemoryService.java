@@ -78,7 +78,10 @@ public class MemoryService {
         }
 
         // 1) Ensure we have a session for this principal
-        List<SessionMemoryEntity> ourSessions = sessionService.getUserSessions(principal, since, until);
+        List<SessionMemoryEntity> ourSessions = new ArrayList<>();
+        try {
+            ourSessions = sessionService.getUserSessions(principal, since, until);
+        } catch (Exception ignored) {}
 
         // 2) Build LLM context from past chunks in that session
         List<LlmMessage> messages = new ArrayList<>();
@@ -99,7 +102,7 @@ public class MemoryService {
                             %s
                             """.formatted(contextText);
 
-        if (!contextText.equalsIgnoreCase("No prior context...")) {
+        if (!contextText.equalsIgnoreCase("No prior context.")) {
             messages.add(new LlmMessage(
                     LlmMessage.Role.SYSTEM,
                     formattedContext

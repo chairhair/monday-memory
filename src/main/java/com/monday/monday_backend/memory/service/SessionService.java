@@ -148,16 +148,19 @@ public class SessionService {
     public List<SessionMemoryEntity> getUserSessions(PrincipalContext principal,
                                                     Instant since, Instant until) {
         String principalId = principal.getPrincipalId().toString();
-        PrincipalType principalType = principal.getPrincipalType();
 
-
-        return sessionMemoryRepository.findSessionsForPrincipal(
-                principalType,
+        List<SessionMemoryEntity> sessionList = sessionMemoryRepository.findSessionsForPrincipal(
                 principalId,
-                since,
-                until,
                 PageRequest.of(0, MAX_SESSIONS_PER_QUERY)
         ).getContent();
+        if (since != null) {
+            sessionList = sessionList.stream().filter(x -> since.isBefore(x.getCreatedAt())).toList();
+        }
+        if (until != null) {
+            sessionList = sessionList.stream().filter(x -> until.isBefore(x.getCreatedAt())).toList();
+        }
+
+        return sessionList;
     }
 
     /**
