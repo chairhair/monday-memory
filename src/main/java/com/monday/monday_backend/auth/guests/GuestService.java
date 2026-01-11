@@ -2,12 +2,16 @@ package com.monday.monday_backend.auth.guests;
 
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.users.UserEntity;
+import com.monday.monday_backend.auth.users.UserPreferencesEntity;
 import com.monday.monday_backend.auth.users.UserRepository;
+import com.monday.monday_backend.memory.service.LimitsProperties;
 import com.monday.monday_backend.payment.PlanDefaultsService;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.UserPlanRepository;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.memory.session.utils.GuestSource;
+import com.monday.shared.memory.session.utils.SessionScope;
+import com.monday.shared.recording.RecordingScope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,7 @@ public class GuestService {
     private final UserPlanRepository userPlanRepository;
     private final RolesRepository rolesRepository; // for default role
     private final PlanDefaultsService planDefaultsService; // default free/guest plans
+    private final LimitsProperties limits;
 
     @Transactional
     public GuestEntity getOrCreateGuest(String guestKey, GuestSource source) {
@@ -118,6 +123,14 @@ public class GuestService {
         // periodStart/End can be set in a PlanPeriodService if you have one
 
         user.setUserPlan(userPlan);
+
+        UserPreferencesEntity userPreferences = new UserPreferencesEntity();
+        userPreferences.setUser(user);
+        userPreferences.setCommScope(RecordingScope.PRIVATE);
+        userPreferences.setScope(SessionScope.CHANNEL);
+        userPreferences.setMaxTokensPerSession(limits.getGuest().getMonthlyTokens());
+        userPreferences.setMaxChunksPerSession(10L);
+        user.setUserPreferences(userPreferences);
 
         userRepository.save(user);
         userPlanRepository.save(userPlan);

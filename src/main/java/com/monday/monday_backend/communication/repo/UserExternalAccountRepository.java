@@ -1,5 +1,6 @@
 package com.monday.monday_backend.communication.repo;
 
+import com.monday.monday_backend.auth.users.UserEntity;
 import com.monday.monday_backend.communication.entity.UserExternalAccount;
 import com.monday.shared.auth.utils.ExternalProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,4 +11,9 @@ import java.util.Optional;
 @Repository
 public interface UserExternalAccountRepository extends JpaRepository<UserExternalAccount, Long> {
     Optional<UserExternalAccount> findByProviderAndExternalId(ExternalProvider provider, String externalId);
+
+    Optional<UserExternalAccount> findByUserAndProvider(
+            UserEntity user,
+            ExternalProvider provider
+    );
 }

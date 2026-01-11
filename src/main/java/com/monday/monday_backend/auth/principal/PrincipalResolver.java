@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -48,8 +49,6 @@ public class PrincipalResolver {
     private final PlanDefaultsService planDefaultsService;
     private final AccessLevelResolver accessLevelResolver;
     private final QuotaService quotaService;
-    private final LimitsProperties limits;
-
 
     /**
      * Chooses what to resolve to dependent on if we're a GUEST, USER, etc.
@@ -71,24 +70,19 @@ public class PrincipalResolver {
 
         UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
 
-        UserPreferencesEntity userPreferences = new UserPreferencesEntity();
-        userPreferences.setUser(user);
-        userPreferences.setCommScope(RecordingScope.PRIVATE);
-        userPreferences.setScope(SessionScope.CHANNEL);
-        userPreferences.setMaxTokensPerSession(limits.getGuest().getMonthlyTokens());
-        userPreferences.setMaxChunksPerSession(10L);
-        user.setUserPreferences(userPreferences);
-
         Optional<ExternalProvider> currentProvider = ExternalProvider.fromString(source.name());
-        if (currentProvider.isPresent()) {
+        if (currentProvider.isEmpty()) {
+            throw new IllegalStateException("Cannot find the current Provider because it isn't listed");
+        }
+        Optional<UserExternalAccount> userExists = userExternalAccountRepository.findByUserAndProvider(user, currentProvider.get());
+
+        if (userExists.isEmpty()) {
             UserExternalAccount userExternalAccount = new UserExternalAccount();
             userExternalAccount.setExternalId(guestKey);
             userExternalAccount.setProvider(currentProvider.get());
             userExternalAccount.setCreatedAt(Instant.now());
             userExternalAccount.setUser(user);
             userExternalAccountRepository.save(userExternalAccount);
-        } else {
-            log.warn("Could not save the external user account to it's linker repo");
         }
 
         PrincipalType principalType;
