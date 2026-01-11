@@ -15,17 +15,13 @@ import com.monday.shared.memory.session.utils.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -63,8 +59,8 @@ public class SessionService {
         // 4. Aggregate + build context
         List<MemoryChunkEntity> chunks = memoryAggregationService.aggregate(session, options);
 
-        HashMap<String,List<MemoryChunkEntity>> sessionChunkMap = new HashMap<>();
-        sessionChunkMap.put(session.getSessionId().toString(), chunks);
+        LinkedHashMap<UUID,List<MemoryChunkEntity>> sessionChunkMap = new LinkedHashMap<>();
+        sessionChunkMap.put(session.getSessionId(), chunks);
         String context = memoryChunkUtils.buildContext(sessionChunkMap);
 
         return new RecallResponseDTO(
