@@ -182,6 +182,7 @@ public class MemoryChunkUtils {
         // We assume caller is already giving us "most recent first" (e.g. ORDER BY occurredAt DESC).
         // We'll keep that order, top to bottom, so the LLM sees recent stuff first.
         for (Map.Entry<String, List<MemoryChunkEntity>> chunkWithSession : chunks.entrySet()) {
+            if (chunkWithSession.getValue().isEmpty()) {continue;}
             sb.append("Session Id - ").append(chunkWithSession.getKey());
             for (MemoryChunkEntity chunk : chunkWithSession.getValue()) {
                 String line = renderChunkForContext(chunk);
@@ -189,6 +190,10 @@ public class MemoryChunkUtils {
                     sb.append(line).append("\n");
                 }
             }
+        }
+
+        if (sb.isEmpty()) {
+            return "No prior context.";
         }
 
         return sb.toString().trim();

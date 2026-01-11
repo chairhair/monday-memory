@@ -5,8 +5,10 @@ import com.monday.shared.memory.session.utils.GuestSource;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface GuestRepository extends JpaRepository<GuestEntity, Long> {
+    Optional<GuestEntity> findByGuestId(UUID guestId);
     Optional<GuestEntity> findByGuestKeyAndSource(String guestKey, GuestSource source);
     Optional<GuestEntity> findByUserAndSource(UserEntity user, GuestSource source);
 }
