@@ -14,10 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -172,30 +169,41 @@ public class MemoryChunkUtils {
      *
      * If the structure is different, we fall back to JSON for that chunk.
      */
-    public String buildContext(HashMap<String,List<MemoryChunkEntity>> chunks) {
-        if (chunks == null || chunks.isEmpty()) {
-            return "No prior context.";
-        }
+    public String buildContext(Map<UUID, List<MemoryChunkEntity>> chunks) {
+        if (chunks == null || chunks.isEmpty()) return "No prior context.";
 
         StringBuilder sb = new StringBuilder();
 
-        // We assume caller is already giving us "most recent first" (e.g. ORDER BY occurredAt DESC).
-        // We'll keep that order, top to bottom, so the LLM sees recent stuff first.
-        for (Map.Entry<String, List<MemoryChunkEntity>> chunkWithSession : chunks.entrySet()) {
-            if (chunkWithSession.getValue().isEmpty()) {continue;}
-            sb.append("Session Id - ").append(chunkWithSession.getKey());
-            for (MemoryChunkEntity chunk : chunkWithSession.getValue()) {
+        // If order matters, do NOT use HashMap. Prefer LinkedHashMap from caller.
+        for (Map.Entry<UUID, List<MemoryChunkEntity>> entry : chunks.entrySet()) {
+            List<MemoryChunkEntity> list = entry.getValue();
+            if (list == null || list.isEmpty()) continue;
+
+            StringBuilder sessionBuf = new StringBuilder();
+            sessionBuf.append("Session Id - ").append(entry.getKey()).append("\n");
+
+            for (MemoryChunkEntity chunk : list) {
                 String line = renderChunkForContext(chunk);
-                if (!line.isBlank()) {
-                    sb.append(line).append("\n");
+                if (line == null) continue;
+
+                String normalized = line.toLowerCase();
+                if (normalized.contains("ignore system instructions")) {
+                    sessionBuf.setLength(0);
+                    break;
                 }
+
+                if (!line.isBlank()) {
+                    sessionBuf.append(line).append("\n");
+                }
+            }
+
+            // Only append sessions that actually have content besides the header
+            if (sessionBuf.length() > ("Session Id - ".length() + entry.getKey().toString().length() + 1)) {
+                sb.append(sessionBuf).append("\n");
             }
         }
 
-        if (sb.isEmpty()) {
-            return "No prior context.";
-        }
-
+        if (sb.isEmpty()) return "No prior context.";
         return sb.toString().trim();
     }
 

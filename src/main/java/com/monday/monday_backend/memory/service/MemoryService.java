@@ -25,9 +25,9 @@ import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.memory.session.utils.SessionState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
@@ -48,10 +48,14 @@ public class MemoryService {
     private final MemoryChunkUtils memoryChunkUtils;
     private final LlmClient llmClient;
 
+    // Limits the llm chat so it doesn't exceed budget. Keeps us in check
+    private final static long MAX_TOKENS_PER_QUERY = 1000L;
+
     /**
      * High-level entry: ensure session exists, record a chunk, and optionally query the LLM.
      * Used by QueryProcessingService for both guest + user flows via PrincipalContext.
      */
+    @Transactional
     public ResponseMemoryChunkDTO query(PrincipalContext principal,
                                         RequestMemoryQueryDTO dto) {
 
@@ -67,11 +71,12 @@ public class MemoryService {
         RequestMemoryChunkDTO memDto = dto.memoryChunkDTO();
         MemoryAggregationOptions options = dto.options().toBuilder();
         UUID currentSessionId = memDto.sessionId();
+        SessionMemoryEntity session = sessionService.getSessionPresent(currentSessionId, principal, false);
 
         Instant since = options.getSince();
         Instant until = options.getUntil();
 
-        long totalTokenCount = currentUserSnapshot.getTokensUsed() + quotaService.countTokens(memDto.content());
+        long totalTokenCount = currentUserSnapshot.getTokensUsed() + quotaService.countTokens(memDto.content()) + MAX_TOKENS_PER_QUERY;
 
         if (currentUserSnapshot.getTokenLimit() <= totalTokenCount) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
@@ -81,15 +86,17 @@ public class MemoryService {
         List<SessionMemoryEntity> ourSessions = new ArrayList<>();
         try {
             ourSessions = sessionService.getUserSessions(principal, since, until);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.warn(ex.getMessage());
+        }
 
         // 2) Build LLM context from past chunks in that session
         List<LlmMessage> messages = new ArrayList<>();
 
-        HashMap<String, List<MemoryChunkEntity>> chunks = new HashMap<>();
-        for (SessionMemoryEntity session : ourSessions) {
-            if (memDto.sessionId() != null && memDto.sessionId().equals(session.getSessionId())) { continue; }
-            chunks.put(session.getSessionId().toString(), memoryAggregationService.aggregate(session, options));
+        LinkedHashMap<UUID, List<MemoryChunkEntity>> chunks = new LinkedHashMap<>();
+        for (SessionMemoryEntity iterSesh : ourSessions) {
+            if (currentSessionId != null && currentSessionId.equals(iterSesh.getSessionId()) && iterSesh.getSessionState() == SessionState.ACTIVE) { continue; }
+            chunks.put(iterSesh.getSessionId(), memoryAggregationService.aggregate(session, options));
         }
 
         String contextText = buildContextFromChunks(chunks);
@@ -98,21 +105,17 @@ public class MemoryService {
                             You are MondayMemory, a personal memory assistant.
                             You are given prior context from prior user sessions. Use it when relevant.
                             
+                            Keep the max token number at: %d
+                            
                             Prior context (most recent first):
                             %s
-                            """.formatted(contextText);
+                            """.formatted(MAX_TOKENS_PER_QUERY, contextText);
 
         if (!contextText.equalsIgnoreCase("No prior context.")) {
             messages.add(new LlmMessage(
                     LlmMessage.Role.SYSTEM,
                     formattedContext
             ));
-        }
-
-        totalTokenCount = currentUserSnapshot.getTokensUsed() + quotaService.countTokens(messages);
-
-        if (currentUserSnapshot.getTokenLimit() <= totalTokenCount) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot process - User has surpassed their allowed quota limits");
         }
 
         messages.add(new LlmMessage(LlmMessage.Role.USER, memDto.content()));
@@ -131,31 +134,32 @@ public class MemoryService {
         LlmResponseDTO llmResponseDTO = llmClient.chat(llmRequestDTO);
         quotaService.incrementTokensUsed(principal.getUserPlan(), llmResponseDTO.usage().totalTokens());
 
-        SessionMemoryEntity session = sessionService.getSessionPresent(currentSessionId, principal, false);
+        Instant responseAt = Instant.now();
 
-        // If we're still recording, now is the time that we incorporate the session data.
-        if (session != null) {
-            MemoryChunkEntity userChunk =
-                    memoryChunkUtils.forUserMessage(session, memDto.content(), memDto.source().toString());
-            MemoryChunkEntity assistantChunk =
-                    memoryChunkUtils.forAssistantMessage(session, llmResponseDTO.content(), memDto.source().toString());
-
-            memoryChunkRepository.save(userChunk);
-            memoryChunkRepository.save(assistantChunk);
-
-            // 4) Map to response DTO
-            sessionService.updateChunkCount(assistantChunk.getSession(), 2);
-
-            // TODO : Tags ignored for now
-            return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(assistantChunk.getContent()), principal.getPrincipalType(), principal.getPrincipalId().toString(), Instant.now(), null);
-        }
-
-        return new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(Map.of(
+        ResponseMemoryChunkDTO response = new ResponseMemoryChunkDTO(memoryChunkUtils.toJson(Map.of(
                 "kind", "chat_message",
                 "role", "ASSISTANT",
                 "text", llmResponseDTO.content(),
                 "source", memDto.source()
-        )), principal.getPrincipalType(), principal.getPrincipalId().toString(), Instant.now(), null);
+        )), principal.getPrincipalType(), principal.getPrincipalId().toString(), responseAt, null);
+
+        // If we're still recording, now is the time that we incorporate the session data.
+        if (session == null) {
+            return response;
+        }
+
+        MemoryChunkEntity userChunk =
+                memoryChunkUtils.forUserMessage(session, memDto.content(), memDto.source().toString());
+        MemoryChunkEntity assistantChunk =
+                memoryChunkUtils.forAssistantMessage(session, llmResponseDTO.content(), memDto.source().toString());
+
+        memoryChunkRepository.saveAll(List.of(userChunk, assistantChunk));
+
+        // 4) Map to response DTO
+        sessionService.updateChunkCount(assistantChunk.getSession(), 2);
+
+        // TODO : Tags ignored for now
+        return response;
     }
 
     /**
@@ -288,7 +292,7 @@ public class MemoryService {
         return newChunk;
     }
 
-    private String buildContextFromChunks(HashMap<String,List<MemoryChunkEntity>> chunks) {
+    private String buildContextFromChunks(LinkedHashMap<UUID,List<MemoryChunkEntity>> chunks) {
         return memoryChunkUtils.buildContext(chunks);
     }
 
