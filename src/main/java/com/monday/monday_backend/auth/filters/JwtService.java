@@ -10,7 +10,9 @@ import com.monday.monday_backend.auth.users.UserRepository;
 import com.monday.shared.auth.dto.VerificationRequestDTO;
 import com.monday.shared.auth.dto.VerificationResponseDTO;
 import com.monday.shared.auth.utils.AccessLevel;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +20,14 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class JwtService {
 
     private final JwtUtil jwtUtil;
     private final TokensRepository tokensRepository;
     private final UserRepository userRepository;
+
     private final UserCredentialsRepository userCredentialsRepository;
 
     public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository, UserCredentialsRepository userCredentialsRepository) {
@@ -39,81 +43,102 @@ public class JwtService {
      * - Provide a token if the user provides its credentials.
      * - Generate a token if the user has the correct role, but does not have the corresponding credential
      *
-     * @param verificationRequestDTO
+     * @param req
      * @return
      */
-    public VerificationResponseDTO assignToken(VerificationRequestDTO verificationRequestDTO) {
-        AccessLevel accessLevel;
-        try {
-            accessLevel = AccessLevel.valueOf(verificationRequestDTO.requestedRole());
-        } catch (IllegalArgumentException e) {
-            accessLevel = AccessLevel.GUEST;
+    @Transactional
+    public VerificationResponseDTO assignToken(VerificationRequestDTO req, PasswordEncoder passwordEncoder) {
+
+        AccessLevel requestedRole = parseAccessLevelOrGuest(req.requestedRole());
+
+        // 1) Load user (if not guest)
+        UserEntity user = null;
+        if (!req.isGuest() && req.principalId() != null) {
+            try {
+                Optional<UserEntity> userOpt = userRepository.findByUserId(UUID.fromString(req.principalId()));
+                if (userOpt.isEmpty()) {
+                    return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "User not found or password incorrect");
+                }
+                user = userOpt.get();
+            } catch(Exception e) {
+                log.warn(e.getMessage());
+                return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "User not found or password incorrect");
+            }
         }
 
-        Optional<UserEntity> findUser = userRepository.findByEmail(verificationRequestDTO.email());
-        if (findUser.isEmpty()) {
-            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "User not found or password incorrect");
-        }
-        UserEntity foundUser = findUser.get();
+        // 2) Load/create credentials (for guest, you may still want a creds row, but be consistent)
+        UserCredentialsEntity creds = null;
+        if (user != null) {
+            creds = userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
 
-        UserCredentialsEntity userCreds = userCredentialsRepository.findByUser_UserId(foundUser.getUserId()).orElse(null);
-        if (userCreds == null) {
-            userCreds = new UserCredentialsEntity();
-            userCreds.setUser(foundUser);
-            userCreds.setPassword(verificationRequestDTO.password());
-        }
-
-        // If no username or password is provided, we can affirm that this is a guest token and should be returned as such
-        if (verificationRequestDTO.isGuest()) {
-            TokensEntity tokensEntity = new TokensEntity();
-            tokensEntity.setToken(jwtUtil.generateToken(verificationRequestDTO.principalId(), "GUEST"));
-            tokensEntity.setSourceName(verificationRequestDTO.sourceName());
-            tokensEntity.setAccessLevel(accessLevel);
-            tokensEntity.setTimeCreated(Instant.now());
-            tokensEntity.setExpired(false);
-            tokensEntity.setRevoked(false);
-            tokensRepository.save(tokensEntity);
-
-            userCreds.addToken(tokensEntity);
-            userCredentialsRepository.save(userCreds);
-
-            return VerificationResponseDTO.successfulDTO(Map.of("token", tokensEntity.getToken(), "requestedRole", "GUEST"));
+            // 3) Verify password
+            if (creds != null && (req.password() == null || creds.getPassword() == null ||
+                    !passwordEncoder.matches(req.password(), creds.getPassword()))) {
+                return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "Password incorrect!");
+            }
         }
 
-        List<TokensEntity> tokensEntityList = userCreds == null || userCreds.getTokens() == null ? new ArrayList<>() : userCreds.getTokens();
-        AccessLevel requestedRole = AccessLevel.valueOf(verificationRequestDTO.requestedRole());
-        List<String> tokensAvailable = tokensEntityList.stream()
-                .filter(x-> !x.isExpired() && !x.isRevoked())
-                .filter(x -> requestedRole.equals(x.getAccessLevel()))
-                .map(TokensEntity::getToken)
-                .collect(Collectors.toList());
-        boolean findRole = foundUser.getRoles().stream().anyMatch(role -> role.getAccessLevel().equals(requestedRole));
-        if (!findRole && tokensAvailable.isEmpty()) {
-            return VerificationResponseDTO.failedDTO(HttpStatus.NOT_FOUND, "Could not find user role");
-        }
-        if (findRole && tokensAvailable.isEmpty()) {
-            // Since we don't have a token generated, we need to generate one.
-            String createToken = jwtUtil.generateToken(verificationRequestDTO.sourceName(), verificationRequestDTO.requestedRole());
-            TokensEntity tokensEntity = new TokensEntity();
-            tokensEntity.setToken(createToken);
-            tokensEntity.setSourceName(verificationRequestDTO.sourceName());
-            tokensEntity.setUserCredentials(userCreds);
-            tokensEntity.setAccessLevel(accessLevel);
-            tokensEntity.setTimeCreated(Instant.now());
-            tokensEntity.setExpired(false);
-            tokensEntity.setRevoked(false);
 
-            userCreds.addToken(tokensEntity);
-            tokensRepository.save(tokensEntity);
-            userCredentialsRepository.save(userCreds);
+        // 4) Reuse active token if present
+        if (creds != null && creds.getTokens() != null) {
+            List<String> active = creds.getTokens().stream()
+                    .filter(t -> !t.isExpired() && !t.isRevoked())
+                    .filter(t -> requestedRole.equals(t.getAccessLevel()))
+                    .map(TokensEntity::getToken)
+                    .toList();
 
-            tokensAvailable.add(createToken);
+            if (!active.isEmpty()) {
+                return VerificationResponseDTO.successfulDTO(Map.of(
+                        "token", active.get(0),
+                        "requestedRole", requestedRole,
+                        "tokensAvailable", active
+                ));
+            }
         }
+
+        // 5) Issue new token: subject should be principalId / userId, not sourceName
+        String subject = req.isGuest()
+                ? req.principalId()
+                : user.getUserId().toString();
+
+        String token = jwtUtil.generateToken(subject, requestedRole.name());
+
+        TokensEntity tokenEntity = new TokensEntity();
+        tokenEntity.setToken(token);
+        tokenEntity.setSourceName(req.sourceName());
+        tokenEntity.setAccessLevel(requestedRole);
+        tokenEntity.setTimeCreated(Instant.now());
+        tokenEntity.setExpired(false);
+        tokenEntity.setRevoked(false);
+
+        tokensRepository.save(tokenEntity);
+
+        // 7) Attach token to creds if applicable (for guests you might store elsewhere; choose one approach)
+        if (creds != null) {
+            creds.addToken(tokenEntity);
+            userCredentialsRepository.save(creds);
+        } else {
+            creds = new UserCredentialsEntity();
+            creds.setUser(user);
+            creds.setPassword(passwordEncoder.encode(req.password()));
+            creds.addToken(tokenEntity);
+            userCredentialsRepository.save(creds);
+        }
+
         return VerificationResponseDTO.successfulDTO(Map.of(
-                "token", tokensAvailable.get(0),
-                "requestedRole", requestedRole,
-                "tokensAvailable", tokensAvailable));
+                "token", token,
+                "requestedRole", requestedRole
+        ));
     }
+
+    private AccessLevel parseAccessLevelOrGuest(String role) {
+        try {
+            return AccessLevel.valueOf(role);
+        } catch (Exception e) {
+            return AccessLevel.GUEST;
+        }
+    }
+
 
     @Transactional
     public Map<String, Object> verify(String token) {

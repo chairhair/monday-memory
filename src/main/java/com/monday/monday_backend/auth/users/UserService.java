@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
+
     private final JwtService jwtService;
     private final LimitsProperties limits;
 
@@ -56,139 +57,83 @@ public class UserService {
     private final PlanDefaultsService planDefaultsService;
     private final PrincipalResolver principalResolver;
 
-    private final RolesRepository rolesRepository;
     private final PasswordEncoder passwordEncoder;
+
+    private final RolesRepository rolesRepository;
     private final static Logger log = LoggerFactory.getLogger(UserService.class);
 
     @Transactional
     public UserResponseDTO upsertUser(UserRequestDTO dto) {
-        UserEntity existing = null;
-        UUID availableUUID = null;
-        try {
-            availableUUID = UUID.fromString(dto.principalKey());
-        } catch (Exception ignored) {}
 
-        Optional<UserExternalAccount> userExternalAccount = userExternalAccountRepository.findByProviderAndExternalId(dto.source(), dto.principalKey());
-        if (availableUUID != null) {
-            existing = userRepository.findById(availableUUID).orElse(null); //
-            if (existing == null && userExternalAccount.isPresent()) {
-                existing = userExternalAccount.get().getUser();
-            }
-        }
-        if ((availableUUID == null || existing == null) && dto.emailAddress() != null) {
-            existing = userRepository.findByEmail(dto.emailAddress()).orElse(null);
-            if (existing == null && userExternalAccount.isPresent()) {
-                existing = userExternalAccount.get().getUser();
-            }
-        }
+        UUID principalUuid = parseUuidOrNull(dto.principalKey());
 
-        UserPreferencesDTO userPreferencesDTO = dto.options();
-        HashSet<String> ourTokens = new HashSet<>();
-        VerificationResponseDTO verificationDTO = null;
+        // Primary lookup: external account (provider + externalId)
+        Optional<UserExternalAccount> externalOpt =
+                userExternalAccountRepository.findByProviderAndExternalId(dto.source(), dto.principalKey());
 
-        List<UUID> sessionIds;
+        // Resolve existing user
+        UserEntity user = resolveExistingUser(principalUuid, dto.emailAddress(), externalOpt);
 
-        if (existing != null) {
-            sessionIds = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.USER, dto.principalKey())
-                    .stream()
-                    .map(SessionMemoryEntity::getSessionId).toList();
-            Optional<UserEntity> potentialDuplicates = userRepository.findByEmail(dto.emailAddress());
-            if (potentialDuplicates.isPresent() && potentialDuplicates.get().getUserId() != existing.getUserId()) {
+        // Email duplicate check (only if email provided)
+        if (dto.emailAddress() != null) {
+            Optional<UserEntity> emailOwner = userRepository.findByEmail(dto.emailAddress());
+            if (emailOwner.isPresent() && (user == null || !emailOwner.get().getUserId().equals(user.getUserId()))) {
                 return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email found.");
             }
-            if (existing.getEmail() == null) {
-                existing.setEmail(dto.emailAddress());
-            }
-            else if (!existing.getEmail().equals(dto.emailAddress())) {
-                return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Email is different from what was previously set.");
-            }
-            UserEntity userEntity = userRepository.save(existing);
-
-            // Now we have to pass in the user credentials
-            UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(existing.getUserId()).orElse(null);
-            boolean isNewCred = userCredentials == null;
-            if (isNewCred) {
-                verificationDTO = generateJWT(userEntity, dto);
-                if (verificationDTO.statusCode() != HttpStatus.OK) {
-                    return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
-                }
-                ourTokens.add((String)verificationDTO.authentication().get("token"));
-            }
-            if (!isNewCred && !passwordEncoder.matches(dto.password(), userCredentials.getPassword())) {
-                userCredentials.setPassword(passwordEncoder.encode(dto.password()));
-            }
-            Set<AccessLevel> rolesPresent = existing.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet());
-            Set<String> tokensList = (isNewCred) ? ourTokens : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
-
-            // If we hit null on our dtos, we want to make sure that we still return something
-            if (userPreferencesDTO == null) {
-                userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, userEntity);
-            }
-            UserPreferencesEntity userPreferencesEntity = UserPreferencesEntity.fromDTOtoEntity(userEntity, userPreferencesDTO);
-            userEntity.setUserPreferences(userPreferencesEntity);
-            userRepository.save(userEntity);
-
-            if (userExternalAccount.isEmpty()) {
-                UserExternalAccount saveAccount = new UserExternalAccount();
-                saveAccount.setUser(userEntity);
-                saveAccount.setProvider(dto.source());
-                saveAccount.setCreatedAt(Instant.now());
-                saveAccount.setExternalId(dto.principalKey());
-                userExternalAccountRepository.save(saveAccount);
-            }
-
-            return UserResponseDTO.successfulDTO(userEntity.getUserId(), sessionIds, userEntity.getEmail(), rolesPresent, tokensList, generateUseStats(existing), userPreferencesDTO);
         }
 
-        RolesEntity rolesEntity = rolesRepository.findByAccessLevel(AccessLevel.USER).orElseThrow(() -> new RuntimeException("Default role USER not found"));
-
-        UserEntity newUser = saveUser(dto.emailAddress(), Set.of(rolesEntity));
-
-        // Now we have to pass in the user credentials
-        UserCredentialsEntity userCredentials = new UserCredentialsEntity();
-        if (dto.password() != null) {
-            userCredentials.setPassword(passwordEncoder.encode(dto.password()));
+        boolean isNewUser = (user == null);
+        if (isNewUser) {
+            user = createDefaultUser(dto);
         }
-        userCredentials.setUser(newUser);
-        userCredentialsRepository.save(userCredentials);
 
-        // Prior to finishing, we must include a new token as part of our
-        verificationDTO = generateJWT(newUser, dto);
+        // Enforce / set email rules
+        UserResponseDTO emailConflict = applyEmailRules(user, dto.emailAddress());
+        if (emailConflict != null) return emailConflict;
 
-        if (verificationDTO.statusCode() != HttpStatus.OK) {
-            return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
+        // Preferences (ensure non-null)
+        UserPreferencesDTO prefs = dto.options();
+        if (prefs == null) {
+            prefs = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, user);
         }
-        ourTokens.add((String)verificationDTO.authentication().get("token"));
+        attachAndSavePreferences(user, prefs);
 
-        // Update all session memory entities that were previously included under our guest.
-        List<SessionMemoryEntity> sessionMemoryEntities = sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, dto.principalKey());
-        for (SessionMemoryEntity sessionMemory : sessionMemoryEntities) {
-            sessionMemory.setPrincipalType(PrincipalType.USER);
-            sessionMemory.setUser(newUser);
-            sessionMemoryRepository.save(sessionMemory);
+        // Credentials + token behavior
+        CredentialResult credResult = ensureCredentialsAndToken(user, dto);
+
+        if (!credResult.ok()) {
+            return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, credResult.errorMessage());
         }
-        sessionIds = sessionMemoryEntities
+
+        // Ensure external account row exists
+        ensureExternalAccount(user, dto, externalOpt);
+
+        // Migrate sessions if this was a guest→user conversion
+        List<UUID> sessionIds;
+        if (isNewUser) {
+            migrateGuestSessionsToUser(dto.principalKey(), user);
+        }
+        sessionIds = sessionMemoryRepository.findByUser_UserId(user.getUserId())
                 .stream()
-                .map(SessionMemoryEntity::getSessionId).toList();
+                .map(SessionMemoryEntity::getSessionId)
+                .toList();
 
-        // If we hit null on our dtos, we want to make sure that we still return something
-        if (userPreferencesDTO == null) {
-            userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, newUser);
-        }
-        UserPreferencesEntity userPreferencesEntity = UserPreferencesEntity.fromDTOtoEntity(newUser, userPreferencesDTO);
-        newUser.setUserPreferences(userPreferencesEntity);
-        userRepository.save(newUser);
+        // Roles + tokens for response
+        Set<AccessLevel> roles = user.getRoles().stream()
+                .map(RolesEntity::getAccessLevel)
+                .collect(Collectors.toSet());
 
-        if (userExternalAccount.isEmpty()) {
-            UserExternalAccount saveAccount = new UserExternalAccount();
-            saveAccount.setUser(newUser);
-            saveAccount.setProvider(dto.source());
-            saveAccount.setCreatedAt(Instant.now());
-            saveAccount.setExternalId(dto.principalKey());
-            userExternalAccountRepository.save(saveAccount);
-        }
+        Set<String> tokens = credResult.tokens();
 
-        return UserResponseDTO.successfulDTO(newUser.getUserId(), sessionIds, newUser.getEmail(), Set.of(AccessLevel.USER), ourTokens, generateUseStats(newUser), userPreferencesDTO);
+        return UserResponseDTO.successfulDTO(
+                user.getUserId(),
+                sessionIds,
+                user.getEmail(),
+                roles,
+                tokens,
+                generateUseStats(user),
+                prefs
+        );
     }
 
     @Transactional
@@ -333,9 +278,131 @@ public class UserService {
                 AccessLevel.USER.name(),
                 dto.emailAddress(),
                 dto.password()
-        ));
+        ), passwordEncoder);
     }
 
+    private UUID parseUuidOrNull(String s) {
+        if (s == null) return null;
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private UserEntity resolveExistingUser(
+            UUID principalUuid,
+            String email,
+            Optional<UserExternalAccount> externalOpt
+    ) {
+        // 1) by UUID (if principalKey happens to be a userId)
+        if (principalUuid != null) {
+            UserEntity byId = userRepository.findById(principalUuid).orElse(null);
+            if (byId != null) return byId;
+        }
+
+        // 2) by external account if present
+        if (externalOpt.isPresent()) {
+            return externalOpt.get().getUser();
+        }
+
+        // 3) by email if present
+        if (email != null) {
+            return userRepository.findByEmail(email).orElse(null);
+        }
+
+        return null;
+    }
+
+    private UserEntity createDefaultUser(UserRequestDTO dto) {
+        RolesEntity defaultRole = rolesRepository.findByAccessLevel(AccessLevel.USER)
+                .orElseThrow(() -> new RuntimeException("Default role USER not found"));
+        return saveUser(dto.emailAddress(), Set.of(defaultRole));
+    }
+
+    /**
+     * Returns a failed DTO if email rules are violated; otherwise null.
+     */
+    private UserResponseDTO applyEmailRules(UserEntity user, String email) {
+        if (email == null) return null;
+
+        if (user.getEmail() == null) {
+            user.setEmail(email);
+            userRepository.save(user);
+            return null;
+        }
+
+        if (!user.getEmail().equals(email)) {
+            return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Email is different from what was previously set.");
+        }
+
+        return null;
+    }
+
+    private void attachAndSavePreferences(UserEntity user, UserPreferencesDTO prefs) {
+        UserPreferencesEntity existing = user.getUserPreferences();
+
+        if (existing == null) {
+            existing = new UserPreferencesEntity();
+            existing.setUser(user);
+            user.setUserPreferences(existing);
+        }
+
+        // copy fields onto the existing row
+        existing.setScope(prefs.scope());
+        existing.setCommScope(prefs.comScope());
+        existing.setMaxChunksPerSession(prefs.maxChunksPerSession());
+        existing.setMaxTokensPerSession(prefs.maxTokensPerSession());
+
+        userRepository.save(user); // with cascade this will persist/merge prefs
+    }
+
+    private void ensureExternalAccount(UserEntity user, UserRequestDTO dto, Optional<UserExternalAccount> externalOpt) {
+        if (externalOpt.isPresent()) return;
+
+        UserExternalAccount acc = new UserExternalAccount();
+        acc.setUser(user);
+        acc.setProvider(dto.source());
+        acc.setExternalId(dto.principalKey());
+        acc.setCreatedAt(Instant.now());
+        userExternalAccountRepository.save(acc);
+    }
+
+    private record CredentialResult(boolean ok, String errorMessage, Set<String> tokens) { }
+
+    private CredentialResult ensureCredentialsAndToken(UserEntity user, UserRequestDTO dto) {
+        UserCredentialsEntity creds =
+                userCredentialsRepository.findByUser_UserId(user.getUserId()).orElse(null);
+
+        boolean isNewCreds = (creds == null);
+        if (isNewCreds) {
+            VerificationResponseDTO verification = generateJWT(user, dto);
+            if (verification.statusCode() != HttpStatus.OK) {
+                return new CredentialResult(false, "Could not generate a token for our user following token assignment", Set.of());
+            }
+
+            String token = (String) verification.authentication().get("token");
+            return new CredentialResult(true, null, Set.of(token));
+        }
+
+        Set<String> tokens = creds.getTokens() == null
+                ? Set.of()
+                : creds.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
+
+        return new CredentialResult(true, null, tokens);
+    }
+
+    private void migrateGuestSessionsToUser(String guestKey, UserEntity user) {
+        // Best: bulk update in repository (see below). For now, keep behavior.
+        List<SessionMemoryEntity> sessions =
+                sessionMemoryRepository.findByPrincipalTypeAndPrincipalId(PrincipalType.GUEST, guestKey);
+
+        for (SessionMemoryEntity s : sessions) {
+            s.setPrincipalType(PrincipalType.USER);
+            s.setUser(user);
+        }
+        sessionMemoryRepository.saveAll(sessions);
+    }
 
     private UserEntity saveUser(String email, Set<RolesEntity> roles) throws DataIntegrityViolationException {
         UserEntity user = new UserEntity();

@@ -22,6 +22,8 @@ public interface SessionMemoryRepository extends JpaRepository<SessionMemoryEnti
 
     Optional<SessionMemoryEntity> findBySessionIdAndPrincipalTypeAndPrincipalId(UUID sessionId, PrincipalType principalType, String principalId);
 
+    List<SessionMemoryEntity> findByUser_UserId(UUID userId);
+
     Optional<SessionMemoryEntity> findBySessionId(UUID sessionId);
 
     List<SessionMemoryEntity> findByPrincipalTypeAndPrincipalId(PrincipalType principalType, String principalId);
