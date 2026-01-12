@@ -83,7 +83,8 @@ public class UserService {
         }
 
         UserPreferencesDTO userPreferencesDTO = dto.options();
-
+        HashSet<String> ourTokens = new HashSet<>();
+        VerificationResponseDTO verificationDTO = null;
 
         List<UUID> sessionIds;
 
@@ -104,12 +105,20 @@ public class UserService {
             UserEntity userEntity = userRepository.save(existing);
 
             // Now we have to pass in the user credentials
-            UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(existing.getUserId()).orElse(new UserCredentialsEntity());
-            if (!passwordEncoder.matches(dto.password(), userCredentials.getPassword())) {
+            UserCredentialsEntity userCredentials = userCredentialsRepository.findByUser_UserId(existing.getUserId()).orElse(null);
+            boolean isNewCred = userCredentials == null;
+            if (isNewCred) {
+                verificationDTO = generateJWT(userEntity, dto);
+                if (verificationDTO.statusCode() != HttpStatus.OK) {
+                    return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
+                }
+                ourTokens.add((String)verificationDTO.authentication().get("token"));
+            }
+            if (!isNewCred && !passwordEncoder.matches(dto.password(), userCredentials.getPassword())) {
                 userCredentials.setPassword(passwordEncoder.encode(dto.password()));
             }
             Set<AccessLevel> rolesPresent = existing.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet());
-            Set<String> tokensList = userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
+            Set<String> tokensList = (isNewCred) ? ourTokens : userCredentials.getTokens().stream().map(TokensEntity::getToken).collect(Collectors.toSet());
 
             // If we hit null on our dtos, we want to make sure that we still return something
             if (userPreferencesDTO == null) {
@@ -144,15 +153,11 @@ public class UserService {
         userCredentialsRepository.save(userCredentials);
 
         // Prior to finishing, we must include a new token as part of our
-        VerificationResponseDTO verificationDTO = jwtService.assignToken(new VerificationRequestDTO(
-                newUser.getUserId().toString(),
-                dto.source().toString(),
-                AccessLevel.USER.name(),
-                dto.emailAddress(),
-                dto.password()
-        ));
+        verificationDTO = generateJWT(newUser, dto);
 
-        HashSet<String> ourTokens = new HashSet<>();
+        if (verificationDTO.statusCode() != HttpStatus.OK) {
+            return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
+        }
         ourTokens.add((String)verificationDTO.authentication().get("token"));
 
         // Update all session memory entities that were previously included under our guest.
@@ -166,9 +171,6 @@ public class UserService {
                 .stream()
                 .map(SessionMemoryEntity::getSessionId).toList();
 
-        if (verificationDTO.statusCode() != HttpStatus.OK) {
-            return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Could not generate a token for our user following token assignment");
-        }
         // If we hit null on our dtos, we want to make sure that we still return something
         if (userPreferencesDTO == null) {
             userPreferencesDTO = generatePreferenceStats(SessionScope.CHANNEL, RecordingScope.PRIVATE, newUser);
@@ -322,6 +324,16 @@ public class UserService {
                 user.getUserPreferences().getMaxTokensPerSession()
         );
         return UserResponseDTO.successfulDTO(user.getUserId(), sessionIds, user.getEmail(), user.getRoles().stream().map(RolesEntity::getAccessLevel).collect(Collectors.toSet()), tokens, generateUseStats(user), options);
+    }
+
+    private VerificationResponseDTO generateJWT(UserEntity newUser, UserRequestDTO dto) {
+        return jwtService.assignToken(new VerificationRequestDTO(
+                newUser.getUserId().toString(),
+                dto.source().toString(),
+                AccessLevel.USER.name(),
+                dto.emailAddress(),
+                dto.password()
+        ));
     }
 
 
