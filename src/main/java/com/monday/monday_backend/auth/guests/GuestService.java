@@ -99,6 +99,7 @@ public class GuestService {
         return guestRepository.save(guest);
     }
 
+    @Transactional
     private UserEntity createShadowUser() {
         UserEntity user = new UserEntity();
 

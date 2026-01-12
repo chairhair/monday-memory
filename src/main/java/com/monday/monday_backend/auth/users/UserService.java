@@ -93,10 +93,13 @@ public class UserService {
                     .map(SessionMemoryEntity::getSessionId).toList();
             Optional<UserEntity> potentialDuplicates = userRepository.findByEmail(dto.emailAddress());
             if (potentialDuplicates.isPresent() && potentialDuplicates.get().getUserId() != existing.getUserId()) {
-                return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email already found.");
+                return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Duplicate email found.");
             }
-            if (!existing.getEmail().equals(dto.emailAddress())) {
+            if (existing.getEmail() == null) {
                 existing.setEmail(dto.emailAddress());
+            }
+            else if (!existing.getEmail().equals(dto.emailAddress())) {
+                return UserResponseDTO.failedDTO(HttpStatus.CONFLICT, "Email is different from what was previously set.");
             }
             UserEntity userEntity = userRepository.save(existing);
 
