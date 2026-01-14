@@ -44,5 +44,6 @@ public class UserCredentialsEntity {
             tokens = new ArrayList<>();
         }
         tokens.add(token);
+        token.setUserCredentials(this);
     }
 }

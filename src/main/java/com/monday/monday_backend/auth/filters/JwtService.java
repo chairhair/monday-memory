@@ -79,7 +79,7 @@ public class JwtService {
         }
 
 
-        // 4) Reuse active token if present
+        // 3) Reuse active token if present
         if (creds != null && creds.getTokens() != null) {
             List<String> active = creds.getTokens().stream()
                     .filter(t -> !t.isExpired() && !t.isRevoked())
@@ -94,6 +94,10 @@ public class JwtService {
                         "tokensAvailable", active
                 ));
             }
+        } else if (creds == null) {
+            creds = new UserCredentialsEntity();
+            creds.setUser(user);
+            creds.setPassword(passwordEncoder.encode(req.password()));
         }
 
         // 5) Issue new token: subject should be principalId / userId, not sourceName
@@ -111,19 +115,9 @@ public class JwtService {
         tokenEntity.setExpired(false);
         tokenEntity.setRevoked(false);
 
-        tokensRepository.save(tokenEntity);
-
         // 7) Attach token to creds if applicable (for guests you might store elsewhere; choose one approach)
-        if (creds != null) {
-            creds.addToken(tokenEntity);
-            userCredentialsRepository.save(creds);
-        } else {
-            creds = new UserCredentialsEntity();
-            creds.setUser(user);
-            creds.setPassword(passwordEncoder.encode(req.password()));
-            creds.addToken(tokenEntity);
-            userCredentialsRepository.save(creds);
-        }
+        creds.addToken(tokenEntity);
+        userCredentialsRepository.save(creds);
 
         return VerificationResponseDTO.successfulDTO(Map.of(
                 "token", token,
