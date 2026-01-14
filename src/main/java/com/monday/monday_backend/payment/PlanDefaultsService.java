@@ -31,7 +31,7 @@ public class PlanDefaultsService {
     public boolean isProPlan(UserPlanEntity userPlan) {
         if (userPlan == null || userPlan.getPlan() == null) return false;
         PricePlanEntity plan = userPlan.getPlan();
-        return "PRO".equalsIgnoreCase(plan.getCode());
+        return plan.getCode().contains("PRO");
     }
 
 }
