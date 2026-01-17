@@ -149,15 +149,14 @@ public class BillingService {
         if (plan == null) {
             plan = new UserPlanEntity();
         }
-        plan.setUser(user);
         plan.setPlan(pricePlanEntity);
         plan.setStripeCustomerId(customerId);
         plan.setStripeSubscriptionId(subId);
-        plan.setCurrentPeriodEnd(periodEnd);
         plan.setUpdatedAt(Instant.now());
         if (periodEnd != null) plan.setCurrentPeriodEnd(periodEnd);
-        userPlanRepository.save(plan);
+        plan.setUser(user);
         user.setUserPlan(plan);
+        userPlanRepository.save(plan);
         userRepository.save(user);
 
         saveAnalyticsEvent(user, "Customer subscribed to a new plan: "+pricePlanEntity.getDisplayName());
@@ -173,8 +172,9 @@ public class BillingService {
         plan.setStripeSubscriptionId(sub);
         plan.setCurrentPeriodEnd(periodEnd);
         plan.setUpdatedAt(Instant.now());
-        userPlanRepository.save(plan);
+        plan.setUser(user);
         user.setUserPlan(plan);
+        userPlanRepository.save(plan);
         userRepository.save(user);
 
         saveAnalyticsEvent(user, "Customer updated to a new plan: "+tier.getDisplayName());

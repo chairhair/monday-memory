@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 public class PlanDefaultsService {
 
     private final PricePlanRepository pricePlanRepository;
-    private final UserPlanRepository userPlanRepository;
 
     public UserPlanEntity getDefaultGuestPlan() {
         PricePlanEntity guestPricePlan = pricePlanRepository
