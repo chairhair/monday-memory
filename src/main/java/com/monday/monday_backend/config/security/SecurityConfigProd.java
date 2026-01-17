@@ -62,7 +62,7 @@ public class SecurityConfigProd {
                         .requestMatchers(
                                 "/actuator/health",
                                 "/error",
-                                "/webhook/stripe",
+                                "/stripe/webhook",
                                 "/auth/**"
                         ).permitAll()
 
