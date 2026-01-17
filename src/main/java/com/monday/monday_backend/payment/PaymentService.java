@@ -20,6 +20,7 @@ import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,9 @@ public class PaymentService implements PaymentProvider {
     private final UserPlanRepository userPlanRepository;
     private final PricePlanRepository pricePlanRepository;
 
+    @Value("${stripe.env.mode}")
+    private String envMode;
+
     @Transactional
     @Override
     public StartCheckoutResponseDTO createSubscriptionCheckout(AuthUser authUser, String pricePlan, String successUrl, String cancelUrl) throws RuntimeException, StripeException {
@@ -55,8 +59,6 @@ public class PaymentService implements PaymentProvider {
         boolean isSamePricePlan = (pricePlanEntity.getCode().contains("PRO_MONTHLY") && pricePlan.equals("PRO_MONTHLY")) || (pricePlanEntity.getCode().contains("PRO_ANNUAL") && pricePlan.equals("PRO_ANNUAL"));
         if (isSamePricePlan) {
             throw new IllegalStateException("Cannot continue - User has already purchased this plan!");
-        } else {
-            pricePlanEntity = null;
         }
 
         String knownPlanId = userPlan.getId().toString();
@@ -75,7 +77,13 @@ public class PaymentService implements PaymentProvider {
         if (userPlan.getStripeCustomerId() != null) {
             params.setCustomer(userPlan.getStripeCustomerId());
         } else {
-            params.setCustomerEmail(authUser.email());
+            if (envMode.equalsIgnoreCase("TEST")) {
+                Customer c = Customer.create(new HashMap<>());
+                userPlan.setStripeCustomerId(c.getId());
+                userPlanRepository.save(userPlan);
+            } else {
+                params.setCustomerEmail(authUser.email());
+            }
         }
 
         Session session = Session.create(params.build());
@@ -105,19 +113,19 @@ public class PaymentService implements PaymentProvider {
 
         // Optional but recommended: mirror Stripe state locally
         plan.setStripeSubscriptionId(null);
-        plan.setPlan(pricePlanRepository.findByCode("FREE").orElseThrow(() -> new IllegalArgumentException("State not found")));
+        plan.setPlan(pricePlanRepository.findByCode("FREE_INTERNAL").orElseThrow(() -> new IllegalArgumentException("State not found")));
         userPlanRepository.save(plan);
         userPlanRepository.save(plan);
     }
 
     @NotNull
-    private static UserPlanEntity getPaidUserPlanEntity(UserEntity user) {
+    private UserPlanEntity getPaidUserPlanEntity(UserEntity user) {
         UserPlanEntity plan = user.getUserPlan();
         if (plan == null) {
             throw new IllegalStateException("No active subscription to cancel.");
         }
         PricePlanEntity pricePlanEntity = plan.getPlan();
-        if (pricePlanEntity == null || !pricePlanEntity.getCode().contains("PRO")) {
+        if (pricePlanEntity == null || (!pricePlanEntity.getCode().contains("PRO") && envMode.equalsIgnoreCase("TEST"))) {
             if (plan.getStripeSubscriptionId() != null) {
                 throw new IllegalStateException("Strange state identified - Subscription Stripe ID is present, but we're free.");
             }

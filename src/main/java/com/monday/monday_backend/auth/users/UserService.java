@@ -18,6 +18,7 @@ import com.monday.monday_backend.payment.PlanDefaultsService;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
 import com.monday.monday_backend.payment.entity.UserPlanEntity;
 import com.monday.monday_backend.payment.repo.PricePlanRepository;
+import com.monday.monday_backend.payment.repo.UserPlanRepository;
 import com.monday.shared.auth.dto.*;
 import com.monday.shared.auth.utils.AccessLevel;
 import com.monday.shared.auth.utils.ExternalProvider;
@@ -25,9 +26,12 @@ import com.monday.shared.memory.plan.EffectivePlan;
 import com.monday.shared.memory.session.utils.PrincipalType;
 import com.monday.shared.memory.session.utils.SessionScope;
 import com.monday.shared.recording.RecordingScope;
+import com.stripe.exception.StripeException;
+import com.stripe.model.Customer;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -51,6 +55,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
+    private final UserPlanRepository userPlanRepository;
+
     private final SessionMemoryRepository sessionMemoryRepository;
     private final PricePlanRepository pricePlanRepository;
 
@@ -60,6 +66,10 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     private final RolesRepository rolesRepository;
+
+    @Value("${stripe.env.mode}")
+    private String envMode;
+
     private final static Logger log = LoggerFactory.getLogger(UserService.class);
 
     @Transactional
@@ -418,6 +428,15 @@ public class UserService {
         });
         userPlan.setUser(user);
         userPlan.setPlan(pricePlanEntity);
+
+        if (envMode.equalsIgnoreCase("TEST")) {
+            try {
+                Customer c = Customer.create(new HashMap<>());
+                userPlan.setStripeCustomerId(c.getId());
+            } catch (StripeException e) {
+                log.error(e.getMessage());
+            }
+        }
 
         user.setUserPlan(userPlan);
 
