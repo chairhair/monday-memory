@@ -7,6 +7,7 @@ WORKDIR /app
 # Copy Gradle configuration files first to leverage Docker cache
 COPY build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
+COPY libs/shared-monday-memory-be-library ./libs/shared-monday-memory-be-library
 
 # Download dependencies - this layer will be cached unless build.gradle changes
 RUN gradle dependencies --no-daemon
