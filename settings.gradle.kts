@@ -17,4 +17,4 @@ dependencyResolutionManagement {
     }
 }
 
-includeBuild("../shared-monday-memory-be-library/libs/shared-monday-memory-be-library")
+includeBuild("./libs/shared-monday-memory-be-library")
