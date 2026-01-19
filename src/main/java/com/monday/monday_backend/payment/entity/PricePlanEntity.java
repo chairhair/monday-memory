@@ -2,6 +2,7 @@ package com.monday.monday_backend.payment.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -18,7 +19,8 @@ public class PricePlanEntity {
     @Column(nullable = false, unique = true)
     String code; // e.g. "FREE_DISCORD", "PRO_MONTHLY"
 
-    @Column(name = "stripe_price_id", nullable = false, unique = true)
+    @Setter
+    @Column(name = "stripe_price_id")
     String stripePriceId;
 
     @Column(name = "display_name")

@@ -19,7 +19,7 @@ CREATE TABLE price_plan (
     id UUID PRIMARY KEY,
 
     code VARCHAR(255) NOT NULL,
-    stripe_price_id VARCHAR(255) NOT NULL,
+    stripe_price_id VARCHAR(255),
 
     display_name VARCHAR(255),
     monthly_amount INTEGER,
@@ -30,8 +30,7 @@ CREATE TABLE price_plan (
 
     warning_threshold_ratio DOUBLE PRECISION,
 
-    CONSTRAINT uk_price_plan_code UNIQUE (code),
-    CONSTRAINT uk_price_plan_stripe_price_id UNIQUE (stripe_price_id)
+    CONSTRAINT uk_price_plan_code UNIQUE (code)
 );
 
 -- Optional but useful (lookup by code is common)

@@ -14,9 +14,7 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.Customer;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
-import com.stripe.param.CustomerUpdateParams;
 import com.stripe.param.SubscriptionCancelParams;
-import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -24,9 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 
@@ -42,6 +38,12 @@ public class PaymentService implements PaymentProvider {
 
     @Value("${stripe.env.mode}")
     private String envMode;
+
+    @Value("${billing.stripe.priceIdMonthly}")
+    private String billingMonthly;
+
+    @Value("${billing.stripe.priceIdAnnually}")
+    private String billingAnnually;
 
     @Transactional
     @Override
@@ -63,6 +65,11 @@ public class PaymentService implements PaymentProvider {
 
         String knownPlanId = userPlan.getId().toString();
         pricePlanEntity = pricePlanRepository.findByCode(pricePlan).orElseThrow(() -> new IllegalArgumentException("Cannot find price plan: "+pricePlan));
+        String priceCode = (pricePlanEntity.getCode().equals("PRO_MONTHLY")) ? billingMonthly : billingAnnually;
+        if (pricePlanEntity.getStripePriceId() == null) {
+            pricePlanEntity.setStripePriceId(priceCode);
+            pricePlanRepository.save(pricePlanEntity);
+        }
 
         SessionCreateParams.Builder params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
@@ -71,7 +78,7 @@ public class PaymentService implements PaymentProvider {
                 .setClientReferenceId(knownPlanId)
                 .putMetadata("userId", user.getUserId().toString())
                 .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setPrice(pricePlanEntity.getStripePriceId())
+                        .setPrice(priceCode)
                         .setQuantity(1L)
                         .build());
         if (userPlan.getStripeCustomerId() != null) {

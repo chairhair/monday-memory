@@ -26,7 +26,7 @@ INSERT INTO price_plan (
 (
     gen_random_uuid(),
     'PRO_MONTHLY',
-    'price_1Sq2rpDhdDJ6p07kUw9mOEsb',       -- replace with real Stripe price ID
+    NULL,       -- replace with real Stripe price ID
     'Pro (Monthly)',
     1000,                          -- $10.00
     NULL,
@@ -39,12 +39,11 @@ INSERT INTO price_plan (
 (
     gen_random_uuid(),
     'PRO_ANNUAL',
-    'price_1Sq2sbDhdDJ6p07kvbwVvd79',        -- replace with real Stripe price ID
+    NULL,        -- replace with real Stripe price ID
     'Pro (Annual)',
     NULL,
     10000,                         -- $100.00 ($8.33/mo)
     200,
     1000000,
     0.80
-)
-;
+);
