@@ -1,0 +1,3 @@
+[submodule "libs/shared-monday-memory-be-library"]
+	path = libs/shared-monday-memory-be-library
+	url = git@github.com:chairhair/shared-monday-memory-be-library.git
