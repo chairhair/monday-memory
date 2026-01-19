@@ -5,7 +5,7 @@ FROM gradle:8.5-jdk21 AS build
 WORKDIR /app
 
 # Copy Gradle configuration files first to leverage Docker cache
-COPY build.gradle settings.gradle ./
+COPY build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
 
 # Download dependencies - this layer will be cached unless build.gradle changes
