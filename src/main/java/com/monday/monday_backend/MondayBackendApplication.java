@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
+@EnableJpaRepositories(basePackages = "com.monday.monday_backend")
 public class MondayBackendApplication {
 
 	public static void main(String[] args) {
