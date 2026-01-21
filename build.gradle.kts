@@ -37,7 +37,7 @@ configurations {
 }
 
 dependencies {
-	implementation(project(":shared-monday-memory-be-library"))
+	implementation("com.monday:shared:0.1.4")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
