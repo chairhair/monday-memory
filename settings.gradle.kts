@@ -17,4 +17,5 @@ dependencyResolutionManagement {
     }
 }
 
-includeBuild("libs/shared-monday-memory-be-library")
+include(":shared-monday-memory-be-library")
+project(":shared-monday-memory-be-library").projectDir = file("libs/shared-monday-memory-be-library")
