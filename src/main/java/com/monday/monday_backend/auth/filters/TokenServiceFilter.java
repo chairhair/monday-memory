@@ -12,10 +12,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -35,11 +33,11 @@ import static com.monday.monday_backend.auth.filters.JwtAuthHelper.*;
  */
 @Component
 @RequiredArgsConstructor
-public class JwtAuthFilter extends OncePerRequestFilter {
+public class TokenServiceFilter extends OncePerRequestFilter {
 
-    private final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
+    private final Logger logger = LoggerFactory.getLogger(TokenServiceFilter.class);
 
-    private final JwtService jwtService;    // Handles parsing + validating the token
+    private final TokenService jwtService;    // Handles parsing + validating the token
     private final TokensRepository tokensRepository;
     private final UserCredentialsRepository userCredentialsRepository;
 
@@ -96,7 +94,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 UserCredentialsEntity uCE = tokensEntity.get().getUserCredentials();
                 if (uCE == null || uCE.getUser() == null) {
                     logger.warn("Could not find user credentials under token; treating it as invalid");
-                    tokensRepository.delete(tokensEntity.get());
+                    tokensEntity.ifPresent(tokensRepository::delete);
                     SecurityContextHolder.clearContext();
                     filterChain.doFilter(request, response);
                     return;
@@ -136,11 +134,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             // ✅ Tell Spring Security the user/service is authenticated
             SecurityContextHolder.getContext().setAuthentication(authentication);
-        } catch (JwtService.TokenInvalidException e) {
-            logger.debug("JWT invalid: {}", e.getMessage());
+        } catch (TokenService.TokenInvalidException e) {
+            logger.debug("Token invalid: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         } catch (Exception e) {
-            logger.error("JWT filter error", e);
+            logger.error("Token filter error", e);
             SecurityContextHolder.clearContext();
         }
 

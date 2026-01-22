@@ -2,17 +2,15 @@ package com.monday.monday_backend.auth.users;
 
 import com.monday.monday_backend.auth.credentials.UserCredentialsEntity;
 import com.monday.monday_backend.auth.credentials.UserCredentialsRepository;
-import com.monday.monday_backend.auth.filters.JwtService;
+import com.monday.monday_backend.auth.filters.TokenService;
 import com.monday.monday_backend.auth.principal.PrincipalResolver;
 import com.monday.monday_backend.auth.roles.RolesEntity;
 import com.monday.monday_backend.auth.roles.RolesRepository;
 import com.monday.monday_backend.auth.tokens.TokensEntity;
-import com.monday.monday_backend.auth.validation.ValidationUtils;
 import com.monday.monday_backend.communication.entity.UserExternalAccount;
 import com.monday.monday_backend.communication.repo.UserExternalAccountRepository;
 import com.monday.monday_backend.memory.entity.SessionMemoryEntity;
 import com.monday.monday_backend.memory.repo.SessionMemoryRepository;
-import com.monday.monday_backend.memory.repo.SessionOptionsRepository;
 import com.monday.monday_backend.memory.service.LimitsProperties;
 import com.monday.monday_backend.payment.PlanDefaultsService;
 import com.monday.monday_backend.payment.entity.PricePlanEntity;
@@ -49,13 +47,12 @@ import java.util.stream.Collectors;
 public class UserService {
 
 
-    private final JwtService jwtService;
+    private final TokenService tokenService;
     private final LimitsProperties limits;
 
     private final UserRepository userRepository;
     private final UserCredentialsRepository userCredentialsRepository;
     private final UserExternalAccountRepository userExternalAccountRepository;
-    private final UserPlanRepository userPlanRepository;
 
     private final SessionMemoryRepository sessionMemoryRepository;
     private final PricePlanRepository pricePlanRepository;
@@ -282,7 +279,7 @@ public class UserService {
     }
 
     private VerificationResponseDTO generateJWT(UserEntity newUser, UserRequestDTO dto) {
-        return jwtService.assignToken(new VerificationRequestDTO(
+        return tokenService.assignToken(new VerificationRequestDTO(
                 newUser.getUserId().toString(),
                 dto.source().toString(),
                 AccessLevel.USER.name(),

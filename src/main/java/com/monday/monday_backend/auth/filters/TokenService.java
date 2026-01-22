@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-public class JwtService {
+public class TokenService {
 
     private final JwtUtil jwtUtil;
     private final TokensRepository tokensRepository;
@@ -30,7 +30,7 @@ public class JwtService {
 
     private final UserCredentialsRepository userCredentialsRepository;
 
-    public JwtService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository, UserCredentialsRepository userCredentialsRepository) {
+    public TokenService(JwtUtil jwtUtil, TokensRepository tokensRepository, UserRepository userRepository, UserCredentialsRepository userCredentialsRepository) {
         this.jwtUtil = jwtUtil;
         this.tokensRepository = tokensRepository;
         this.userRepository = userRepository;
@@ -105,7 +105,7 @@ public class JwtService {
                 ? req.principalId()
                 : user.getUserId().toString();
 
-        String token = jwtUtil.generateToken(subject, requestedRole.name());
+        String token = jwtUtil.generateToken(subject, requestedRole.name()); // tokenGenerator.newToken();
 
         TokensEntity tokenEntity = new TokensEntity();
         tokenEntity.setToken(token);
