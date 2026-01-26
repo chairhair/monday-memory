@@ -1,6 +1,5 @@
 package com.monday.monday_backend.config.security;
 
-import com.monday.monday_backend.auth.filters.JwtAuthFilter;
 import com.monday.monday_backend.auth.filters.TokenServiceFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +31,7 @@ import java.time.Duration;
 @Profile("prod")
 public class SecurityConfigProd {
 
-    private final TokenServiceFilter jwtAuthFilter;
+    private final TokenServiceFilter tokenServiceFilter;
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(); // strength defaults to 10
@@ -84,7 +83,7 @@ public class SecurityConfigProd {
 
                         .anyRequest().denyAll()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(tokenServiceFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
 

@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class JwtAuthHelper {
+public class TokenAuthHelper {
     public static String asString(Object v) {
         return v == null ? null : String.valueOf(v);
     }
